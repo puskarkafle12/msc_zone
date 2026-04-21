@@ -410,14 +410,14 @@ body {
 
 .compare-meal-title {
   padding: 0.32rem 0.55rem;
-  font-size: 0.7rem;
+  font-size: 0.86rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #4338ca;
-  background: linear-gradient(90deg, #eef2ff, #f8fafc);
-  border-bottom: 1px solid var(--line);
-  border-left: 3px solid #6366f1;
+  color: #312e81;
+  background: linear-gradient(90deg, #dbeafe, #eef2ff);
+  border-bottom: 1px solid #c7d2fe;
+  border-left: 4px solid #4338ca;
 }
 
 .compare-station-row {
@@ -440,16 +440,18 @@ body {
 }
 
 .compare-cell-head {
-  font-size: 0.68rem;
+  font-size: 0.98rem;
   font-weight: 700;
-  color: #475569;
-  margin-bottom: 0.2rem;
+  color: #1e293b;
+  margin-bottom: 0.35rem;
   padding-left: 0.38rem;
-  border-left: 2px solid #c7d2fe;
+  border-left: 3px solid #6366f1;
   border-radius: 4px;
-  padding-top: 0.12rem;
-  padding-bottom: 0.12rem;
-  background: #f8fafc;
+  padding-top: 0.18rem;
+  padding-bottom: 0.18rem;
+  background: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .single-grid {
@@ -499,38 +501,62 @@ body {
 }
 
 .station-name {
-  margin: 0 0 0.35rem;
-  font-size: 0.78rem;
-  color: var(--muted);
+  margin: 0 0 0.45rem;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #1e293b;
   padding-left: 0.38rem;
-  border-left: 2px solid #dbeafe;
+  border-left: 3px solid #6366f1;
   border-radius: 4px;
-  padding-top: 0.1rem;
-  padding-bottom: 0.1rem;
-  background: #f8fafc;
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+  background: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .station-default {
-  border-left-color: #c7d2fe;
-  background: #f8fafc;
+  border-left-color: #4f46e5;
+  background: #e2e8f0;
 }
 
 .station-chef {
-  border-left-color: #f59e0b;
-  background: #fffbeb;
-  color: #92400e;
+  border-left-color: #d97706;
+  background: #fde68a;
+  color: #7c2d12;
 }
 
 .station-bakery {
-  border-left-color: #ec4899;
-  background: #fdf2f8;
-  color: #9d174d;
+  border-left-color: #be185d;
+  background: #fbcfe8;
+  color: #831843;
 }
 
 .station-grill {
-  border-left-color: #ef4444;
-  background: #fef2f2;
-  color: #991b1b;
+  border-left-color: #b91c1c;
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+/* Alternating header colors for easier row separation */
+.station-block:nth-child(odd) .station-name.station-default {
+  background: #f1f5f9;
+  border-left-color: #93c5fd;
+}
+
+.station-block:nth-child(even) .station-name.station-default {
+  background: #eef2ff;
+  border-left-color: #818cf8;
+}
+
+.compare-station-row:nth-child(odd) .compare-cell-head.station-default {
+  background: #f1f5f9;
+  border-left-color: #93c5fd;
+}
+
+.compare-station-row:nth-child(even) .compare-cell-head.station-default {
+  background: #eef2ff;
+  border-left-color: #818cf8;
 }
 
 .station-items {
@@ -543,15 +569,15 @@ body {
   border: none;
   border-bottom: 1px solid #e9edf3;
   border-radius: 0;
-  padding: 0.25rem 0.08rem;
+  padding: 0.36rem 0.12rem;
   background: transparent;
 }
 
 .item-name {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: 1.08rem;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 .item-top {
@@ -572,8 +598,8 @@ body {
   background: #eff6ff;
   color: #1d4ed8;
   border-radius: 999px;
-  font-size: 0.66rem;
-  padding: 0.08rem 0.34rem;
+  font-size: 0.74rem;
+  padding: 0.1rem 0.42rem;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -612,8 +638,8 @@ body {
 }
 
 .meta-line {
-  margin-top: 0.14rem;
-  font-size: 0.66rem;
+  margin-top: 0.24rem;
+  font-size: 0.84rem;
   line-height: 1.25;
   display: flex;
   flex-wrap: wrap;
@@ -627,7 +653,7 @@ body {
 }
 
 .meta-chip {
-  font-size: 0.66rem;
+  font-size: 0.84rem;
   font-weight: 600;
 }
 

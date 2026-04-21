@@ -31,3 +31,14 @@ Steps:
 1. Push this project to GitHub.
 2. In Render, create a new **Blueprint** service and select the repo.
 3. Deploy.
+
+## Install on mobile (PWA)
+
+This app is configured as an installable Progressive Web App.
+
+- **Android (Chrome):**
+  - Open deployed URL
+  - Tap browser menu -> **Install app** / **Add to Home screen**
+- **iPhone (Safari):**
+  - Open deployed URL
+  - Tap **Share** -> **Add to Home Screen**

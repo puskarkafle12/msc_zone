@@ -449,6 +449,58 @@ function createCopyText() {
   return `PVAMU Menu Export\n\n${els.status.textContent}\n\n${pageText}`;
 }
 
+async function buildFullCopyText() {
+  const anchor = fromInputDate(els.anchorDateInput.value);
+  const customStart = fromInputDate(els.customStartInput.value);
+  const customEnd = fromInputDate(els.customEndInput.value);
+  const range = dateRangeForType(els.rangeTypeSelect.value, anchor, customStart, customEnd);
+  const days = eachDate(range.start, range.end);
+  const filters = activeFilters();
+  const favorites = loadFavorites();
+  let out = [`PVAMU Menu Export`, `Range: ${range.type}`, ``];
+
+  for (const date of days) {
+    if (isWeekend(date)) continue;
+    const iso = formatISODate(date);
+    const dayLabel = date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    const byVenue = await fetchByVenue(iso);
+
+    const renderPlain = (html) =>
+      html
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    out.push(`## ${dayLabel}`);
+    if (venueMode === "combined" || venueMode === "msc") {
+      const m = renderMealsWithOptions(byVenue.msc, {
+        activeFilters: filters,
+        favorites,
+        mealFilters: [],
+        hideMealTitles: false,
+      });
+      out.push(`MSC: ${renderPlain(m.html)}`);
+    }
+    if (venueMode === "combined" || venueMode === "zone") {
+      const z = renderMealsWithOptions(byVenue.zone, {
+        activeFilters: filters,
+        favorites,
+        mealFilters: [],
+        hideMealTitles: false,
+      });
+      out.push(`ZONE: ${renderPlain(z.html)}`);
+    }
+    out.push("");
+  }
+
+  return out.join("\n").trim();
+}
+
 async function loadMenus() {
   const anchor = fromInputDate(els.anchorDateInput.value);
   const customStart = fromInputDate(els.customStartInput.value);
@@ -491,6 +543,7 @@ async function loadMenus() {
           activeFilters: filters,
           favorites,
           mealFilters,
+          hideMealTitles: mealFilters.length === 1,
           dayLabel: label,
         });
       } else {
@@ -498,6 +551,7 @@ async function loadMenus() {
           activeFilters: filters,
           favorites,
           mealFilters,
+          hideMealTitles: mealFilters.length === 1,
           dayLabel: label,
         });
         panelBody = `<div class="single-grid">${renderVenuePanel(venueMode, single.html)}</div>`;
@@ -557,9 +611,9 @@ document.querySelectorAll("[data-meal-tab]").forEach((button) => {
   });
 });
 els.copyMenuBtn.addEventListener("click", async () => {
-  if (!lastRenderText) lastRenderText = createCopyText();
   try {
-    await navigator.clipboard.writeText(lastRenderText);
+    const fullText = await buildFullCopyText();
+    await navigator.clipboard.writeText(fullText || lastRenderText || createCopyText());
     setStatus("Menu copied. You can paste it into ChatGPT.");
   } catch {
     setStatus("Clipboard copy failed. Please copy manually.", true);
@@ -603,3 +657,11 @@ setActiveTab("menu");
 renderTracker();
 renderCalorieGraph();
 loadMenus();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(() => {
+      // Fail silently so UI is unaffected if SW registration fails.
+    });
+  });
+}

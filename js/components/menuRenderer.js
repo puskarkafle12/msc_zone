@@ -101,10 +101,51 @@ function stationSortValue(name) {
 
 function stationClassName(name) {
   const t = String(name || "").toLowerCase();
-  if (t.includes("chef") && t.includes("table")) return "station-chef";
+  if (
+    (t.includes("chef") && t.includes("table")) ||
+    t.includes("entree - meal") ||
+    t.includes("stock & sauce") ||
+    t.includes("wstock & sauce") ||
+    t.includes("pasta station") ||
+    t.includes("dessert")
+  ) {
+    return "station-chef";
+  }
+  if (
+    t.includes("entree") ||
+    t.includes("miscellaneous") ||
+    t.includes("condiment") ||
+    t.includes("garnish")
+  ) {
+    return "station-chef";
+  }
+  if (
+    t.includes("pizza") ||
+    t.includes("salad") ||
+    t.includes("salad dressing")
+  ) {
+    return "station-bakery";
+  }
+  if (
+    t.includes("action") ||
+    t.includes("starch") ||
+    t.includes("sandwich - hot") ||
+    t.includes("sandwich") ||
+    t.includes("deli")
+  ) {
+    return "station-grill";
+  }
   if (t.includes("bakery")) return "station-bakery";
   if (t.includes("grill")) return "station-grill";
   return "station-default";
+}
+
+function stationHeaderForItem(item, fallbackName) {
+  const course = String(item?.course ?? "").trim();
+  if (course) return course;
+  const station = String(item?.station ?? "").trim();
+  if (station) return station;
+  return String(fallbackName ?? "Station");
 }
 
 function sortStationsForDisplay(stations) {
@@ -136,6 +177,7 @@ export function renderMealsWithOptions(payload, options) {
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
   const mealFilters = options.mealFilters ?? [];
+  const hideMealTitles = Boolean(options.hideMealTitles);
   const highProteinMode = activeFilters.includes("highProtein");
 
   let mealHtml = "";
@@ -162,7 +204,7 @@ export function renderMealsWithOptions(payload, options) {
       const items = group.items ?? group.products ?? group.recipes ?? [];
       if (!Array.isArray(items) || !items.length) continue;
 
-      const renderedItems = [];
+      const renderedByHeader = new Map();
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
         const tags = classifyItem(item);
@@ -182,29 +224,36 @@ export function renderMealsWithOptions(payload, options) {
           highProtein,
           favorite: favorites.has(name.toLowerCase()),
         });
-        renderedItems.push({
+        const headerName = stationHeaderForItem(item, groupName);
+        if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
+        renderedByHeader.get(headerName).push({
           html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
           protein: nutrition.protein ?? -1,
           name,
         });
       }
-
-      if (highProteinMode) {
-        renderedItems.sort((a, b) => {
-          if (b.protein !== a.protein) return b.protein - a.protein;
-          return a.name.localeCompare(b.name);
-        });
-      }
-      const itemHtml = renderedItems.map((x) => x.html).join("");
-      if (!itemHtml) continue;
-      if (highProteinMode) {
-        mealItems.push(...renderedItems);
-      } else {
-        groupHtml += `
-          <section class="station-block">
-            <h4 class="station-name ${stationClassName(groupName)}">${escapeHtml(groupName)}</h4>
-            <div class="station-items">${itemHtml}</div>
-          </section>`;
+      const sections = [...renderedByHeader.entries()].sort((a, b) => {
+        const sa = stationSortValue(a[0]);
+        const sb = stationSortValue(b[0]);
+        if (sa !== sb) return sa - sb;
+        return a[0].localeCompare(b[0]);
+      });
+      for (const [headerName, renderedItems] of sections) {
+        if (highProteinMode) {
+          renderedItems.sort((a, b) => {
+            if (b.protein !== a.protein) return b.protein - a.protein;
+            return a.name.localeCompare(b.name);
+          });
+          mealItems.push(...renderedItems);
+        } else {
+          const itemHtml = renderedItems.map((x) => x.html).join("");
+          if (!itemHtml) continue;
+          groupHtml += `
+            <section class="station-block">
+              <h4 class="station-name ${stationClassName(headerName)}">${escapeHtml(headerName)}</h4>
+              <div class="station-items">${itemHtml}</div>
+            </section>`;
+        }
       }
     }
 
@@ -226,7 +275,7 @@ export function renderMealsWithOptions(payload, options) {
     if (!groupHtml) continue;
     mealHtml += `
       <section class="meal-block">
-        <h3 class="meal-title">${escapeHtml(mealName)}</h3>
+        ${hideMealTitles ? "" : `<h3 class="meal-title">${escapeHtml(mealName)}</h3>`}
         ${groupHtml}
       </section>`;
   }
@@ -335,7 +384,7 @@ export function renderCombinedComparison(mscPayload, zonePayload, options) {
 
     rows += `
       <section class="compare-meal-block">
-        <div class="compare-meal-title">${escapeHtml(mealLabel)}</div>
+        ${options.hideMealTitles ? "" : `<div class="compare-meal-title">${escapeHtml(mealLabel)}</div>`}
         ${stationRows}
       </section>`;
   }
@@ -377,7 +426,7 @@ function buildMealStationMap(payload, options) {
       const groupName = String(group.name ?? group.station ?? group.category ?? "Station");
       const items = group.items ?? group.products ?? group.recipes ?? [];
       if (!Array.isArray(items) || !items.length) continue;
-      const renderedItems = [];
+      const renderedByHeader = new Map();
 
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
@@ -387,26 +436,33 @@ function buildMealStationMap(payload, options) {
         const name = itemName(item);
         const healthy = isHealthy(tags, nutrition);
         const highProtein = isHighProtein(nutrition);
-        renderedItems.push({
+        const headerName = stationHeaderForItem(item, groupName);
+        if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
+        renderedByHeader.get(headerName).push({
           html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
           protein: nutrition.protein ?? -1,
           name,
         });
       }
-
-      if (highProteinMode) {
-        renderedItems.sort((a, b) => {
-          if (b.protein !== a.protein) return b.protein - a.protein;
-          return a.name.localeCompare(b.name);
-        });
-      }
-      const itemHtml = renderedItems.map((x) => x.html).join("");
-      if (!itemHtml) continue;
-      if (highProteinMode) {
-        mealItems.push(...renderedItems);
-      } else {
-        stations.set(groupName, `<div class="station-items">${itemHtml}</div>`);
-        stationOrder.push(groupName);
+      const sections = [...renderedByHeader.entries()].sort((a, b) => {
+        const sa = stationSortValue(a[0]);
+        const sb = stationSortValue(b[0]);
+        if (sa !== sb) return sa - sb;
+        return a[0].localeCompare(b[0]);
+      });
+      for (const [headerName, renderedItems] of sections) {
+        if (highProteinMode) {
+          renderedItems.sort((a, b) => {
+            if (b.protein !== a.protein) return b.protein - a.protein;
+            return a.name.localeCompare(b.name);
+          });
+          mealItems.push(...renderedItems);
+        } else {
+          const itemHtml = renderedItems.map((x) => x.html).join("");
+          if (!itemHtml) continue;
+          stations.set(headerName, `<div class="station-items">${itemHtml}</div>`);
+          stationOrder.push(headerName);
+        }
       }
     }
 
