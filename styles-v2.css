@@ -578,6 +578,7 @@ body {
   font-size: 1.08rem;
   font-weight: 600;
   line-height: 1.35;
+  min-width: 0;
 }
 
 .item-top {
@@ -585,12 +586,15 @@ body {
   gap: 0.5rem;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .item-actions {
   display: flex;
   gap: 0.3rem;
   align-items: center;
+  flex: 0 0 auto;
+  max-width: 100%;
 }
 
 .add-count-badge {
@@ -1103,12 +1107,30 @@ body {
 }
 
 @media (max-width: 640px) {
+  .header-inner,
+  .main,
+  .site-footer {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+  }
+
   .header-controls {
     width: 100%;
   }
 
   .top-tabs {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .tab-btn {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+    padding: 0.34rem 0.42rem;
   }
 
   .segmented,
@@ -1118,6 +1140,24 @@ body {
 
   .segmented .seg-btn {
     flex: 1;
+    min-width: 0;
+    font-size: 0.76rem;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+  }
+
+  .meal-switch {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+
+  .meal-btn {
+    width: 100%;
+    min-width: 0;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
   }
 
   .range-panel-row::before {
@@ -1126,5 +1166,21 @@ body {
 
   .filter-title {
     min-width: 100%;
+  }
+
+  .item-top {
+    gap: 0.35rem;
+  }
+
+  .item-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .add-btn,
+  .fav-btn,
+  .add-count-badge {
+    flex: 0 0 auto;
   }
 }
