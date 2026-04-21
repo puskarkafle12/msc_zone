@@ -1,18 +1,33 @@
-# MSC + The Zone Menu (Static App)
+# MSC + The Zone Menu
 
-This project is a pure static website (`index.html`, `styles.css`, `app.js`) and can be deployed directly on Render.
+Dining comparison app for PVAMU with:
+- side-by-side MSC vs Zone comparison
+- meal switcher (breakfast / lunch / dinner)
+- favorites + upcoming favorites insight
+- calorie tracker with graph
+
+## Local development
+
+```bash
+npm install
+npm run dev
+```
+
+## Production build
+
+```bash
+npm run build
+```
+
+Build output is generated in `dist/`.
 
 ## Deploy on Render
 
-1. Push this folder to a GitHub repo.
-2. In Render, create a new **Blueprint** service (or Static Site from repo).
-3. Render will detect `render.yaml` and configure deployment automatically.
-4. Deploy.
+This repo includes `render.yaml` for automatic deployment:
+- Build Command: `npm run build`
+- Publish Directory: `dist`
 
-## Notes
-
-- No backend is required.
-- Menu data is fetched in the browser from Sodexo's API.
-- If you deploy as Static Site manually instead of Blueprint:
-  - Build Command: leave empty
-  - Publish Directory: `.`
+Steps:
+1. Push this project to GitHub.
+2. In Render, create a new **Blueprint** service and select the repo.
+3. Deploy.

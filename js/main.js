@@ -180,14 +180,25 @@ function addCalorieEntry({ name, quantity, caloriesPerUnit }) {
   const day = formatISODate(new Date());
   const store = loadCalorieLogStore();
   const list = Array.isArray(store[day]) ? store[day] : [];
-  list.push({
-    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    name,
-    quantity,
-    caloriesPerUnit,
-    totalCalories: caloriesPerUnit * quantity,
-    addedAt: new Date().toISOString(),
-  });
+  const key = String(name).toLowerCase();
+  const existing = list.find((item) => String(item.name).toLowerCase() === key);
+  if (existing) {
+    existing.quantity = (Number(existing.quantity) || 0) + quantity;
+    existing.caloriesPerUnit = Number.isFinite(caloriesPerUnit) && caloriesPerUnit > 0
+      ? caloriesPerUnit
+      : (Number(existing.caloriesPerUnit) || 0);
+    existing.totalCalories = (Number(existing.quantity) || 0) * (Number(existing.caloriesPerUnit) || 0);
+    existing.addedAt = new Date().toISOString();
+  } else {
+    list.push({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      name,
+      quantity,
+      caloriesPerUnit,
+      totalCalories: caloriesPerUnit * quantity,
+      addedAt: new Date().toISOString(),
+    });
+  }
   store[day] = list;
   saveCalorieLogStore(store);
 }
@@ -331,18 +342,13 @@ function wireAddButtons() {
     button.addEventListener("click", () => {
       const name = button.getAttribute("data-add-item") || "Item";
       const rawCalories = Number.parseFloat(button.getAttribute("data-add-calories") || "");
-      const caloriesPerUnit = Number.isFinite(rawCalories)
-        ? rawCalories
-        : Number.parseFloat(window.prompt(`Calories for "${name}" (per serving):`, "100") || "");
-      if (!Number.isFinite(caloriesPerUnit) || caloriesPerUnit <= 0) return;
-
-      const quantity = Number.parseFloat(window.prompt(`Quantity for "${name}"`, "1") || "1");
-      if (!Number.isFinite(quantity) || quantity <= 0) return;
+      const caloriesPerUnit = Number.isFinite(rawCalories) && rawCalories > 0 ? rawCalories : 0;
+      const quantity = 1;
 
       addCalorieEntry({ name, quantity, caloriesPerUnit });
       renderTracker();
       renderCalorieGraph();
-      setStatus(`Added ${name} to calorie tracker.`);
+      setStatus(`Added ${name} (+1) to calorie tracker.`);
     });
   });
 }

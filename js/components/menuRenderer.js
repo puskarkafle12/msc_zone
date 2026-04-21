@@ -99,6 +99,14 @@ function stationSortValue(name) {
   return 1;
 }
 
+function stationClassName(name) {
+  const t = String(name || "").toLowerCase();
+  if (t.includes("chef") && t.includes("table")) return "station-chef";
+  if (t.includes("bakery")) return "station-bakery";
+  if (t.includes("grill")) return "station-grill";
+  return "station-default";
+}
+
 function sortStationsForDisplay(stations) {
   const ordered = [...stations];
   ordered.sort((a, b) => {
@@ -128,6 +136,7 @@ export function renderMealsWithOptions(payload, options) {
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
   const mealFilters = options.mealFilters ?? [];
+  const highProteinMode = activeFilters.includes("highProtein");
 
   let mealHtml = "";
   const visibleItems = [];
@@ -146,13 +155,14 @@ export function renderMealsWithOptions(payload, options) {
     const sortedGroups = sortStationsForDisplay(groups);
 
     let groupHtml = "";
+    const mealItems = [];
     for (const group of sortedGroups) {
       if (!group || typeof group !== "object") continue;
       const groupName = group.name ?? group.station ?? group.category ?? "Station";
       const items = group.items ?? group.products ?? group.recipes ?? [];
       if (!Array.isArray(items) || !items.length) continue;
 
-      let itemHtml = "";
+      const renderedItems = [];
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
         const tags = classifyItem(item);
@@ -172,15 +182,45 @@ export function renderMealsWithOptions(payload, options) {
           highProtein,
           favorite: favorites.has(name.toLowerCase()),
         });
-        itemHtml += renderItemCard(name, item, tags, favorites, highProtein, healthy);
+        renderedItems.push({
+          html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
+          protein: nutrition.protein ?? -1,
+          name,
+        });
       }
 
+      if (highProteinMode) {
+        renderedItems.sort((a, b) => {
+          if (b.protein !== a.protein) return b.protein - a.protein;
+          return a.name.localeCompare(b.name);
+        });
+      }
+      const itemHtml = renderedItems.map((x) => x.html).join("");
       if (!itemHtml) continue;
-      groupHtml += `
-        <section class="station-block">
-          <h4 class="station-name">${escapeHtml(groupName)}</h4>
-          <div class="station-items">${itemHtml}</div>
-        </section>`;
+      if (highProteinMode) {
+        mealItems.push(...renderedItems);
+      } else {
+        groupHtml += `
+          <section class="station-block">
+            <h4 class="station-name ${stationClassName(groupName)}">${escapeHtml(groupName)}</h4>
+            <div class="station-items">${itemHtml}</div>
+          </section>`;
+      }
+    }
+
+    if (highProteinMode) {
+      mealItems.sort((a, b) => {
+        if (b.protein !== a.protein) return b.protein - a.protein;
+        return a.name.localeCompare(b.name);
+      });
+      const topHtml = mealItems.map((x) => x.html).join("");
+      if (topHtml) {
+        groupHtml += `
+          <section class="station-block">
+            <h4 class="station-name">Top High Protein</h4>
+            <div class="station-items">${topHtml}</div>
+          </section>`;
+      }
     }
 
     if (!groupHtml) continue;
@@ -248,9 +288,9 @@ export function renderCombinedComparison(mscPayload, zonePayload, options) {
       const l = leftOnly[li++];
       const r = rightOnly[ri++];
       pairedRows.push({
-        leftName: `${l[0]} (MSC)`,
+        leftName: l[0],
         leftHtml: l[1],
-        rightName: `${r[0]} (Zone)`,
+        rightName: r[0],
         rightHtml: r[1],
       });
     }
@@ -261,9 +301,9 @@ export function renderCombinedComparison(mscPayload, zonePayload, options) {
       const a = leftOnly[li++];
       const b = leftOnly[li++] ?? null;
       pairedRows.push({
-        leftName: `${a[0]} (MSC)`,
+        leftName: a[0],
         leftHtml: a[1],
-        rightName: b ? `${b[0]} (MSC)` : "",
+        rightName: b ? b[0] : "",
         rightHtml: b ? b[1] : "",
       });
     }
@@ -271,9 +311,9 @@ export function renderCombinedComparison(mscPayload, zonePayload, options) {
       const a = rightOnly[ri++];
       const b = rightOnly[ri++] ?? null;
       pairedRows.push({
-        leftName: `${a[0]} (Zone)`,
+        leftName: a[0],
         leftHtml: a[1],
-        rightName: b ? `${b[0]} (Zone)` : "",
+        rightName: b ? b[0] : "",
         rightHtml: b ? b[1] : "",
       });
     }
@@ -283,11 +323,11 @@ export function renderCombinedComparison(mscPayload, zonePayload, options) {
       stationRows += `
         <div class="compare-station-row">
           <div class="compare-cell">
-            ${row.leftName ? `<div class="compare-cell-head">${escapeHtml(row.leftName)}</div>` : ""}
+            ${row.leftName ? `<div class="compare-cell-head ${stationClassName(row.leftName)}">${escapeHtml(row.leftName)}</div>` : ""}
             ${row.leftHtml || ""}
           </div>
           <div class="compare-cell">
-            ${row.rightName ? `<div class="compare-cell-head">${escapeHtml(row.rightName)}</div>` : ""}
+            ${row.rightName ? `<div class="compare-cell-head ${stationClassName(row.rightName)}">${escapeHtml(row.rightName)}</div>` : ""}
             ${row.rightHtml || ""}
           </div>
         </div>`;
@@ -315,6 +355,7 @@ function buildMealStationMap(payload, options) {
   const mealFilters = options.mealFilters ?? [];
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
+  const highProteinMode = activeFilters.includes("highProtein");
   const mealMap = new Map();
   const mealOrder = [];
 
@@ -329,13 +370,14 @@ function buildMealStationMap(payload, options) {
     if (!Array.isArray(groups) || !groups.length) continue;
     const stations = new Map();
     const stationOrder = [];
+    const mealItems = [];
 
     for (const group of sortStationsForDisplay(groups)) {
       if (!group || typeof group !== "object") continue;
       const groupName = String(group.name ?? group.station ?? group.category ?? "Station");
       const items = group.items ?? group.products ?? group.recipes ?? [];
       if (!Array.isArray(items) || !items.length) continue;
-      let itemHtml = "";
+      const renderedItems = [];
 
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
@@ -345,12 +387,39 @@ function buildMealStationMap(payload, options) {
         const name = itemName(item);
         const healthy = isHealthy(tags, nutrition);
         const highProtein = isHighProtein(nutrition);
-        itemHtml += renderItemCard(name, item, tags, favorites, highProtein, healthy);
+        renderedItems.push({
+          html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
+          protein: nutrition.protein ?? -1,
+          name,
+        });
       }
 
+      if (highProteinMode) {
+        renderedItems.sort((a, b) => {
+          if (b.protein !== a.protein) return b.protein - a.protein;
+          return a.name.localeCompare(b.name);
+        });
+      }
+      const itemHtml = renderedItems.map((x) => x.html).join("");
       if (!itemHtml) continue;
-      stations.set(groupName, `<div class="station-items">${itemHtml}</div>`);
-      stationOrder.push(groupName);
+      if (highProteinMode) {
+        mealItems.push(...renderedItems);
+      } else {
+        stations.set(groupName, `<div class="station-items">${itemHtml}</div>`);
+        stationOrder.push(groupName);
+      }
+    }
+
+    if (highProteinMode) {
+      mealItems.sort((a, b) => {
+        if (b.protein !== a.protein) return b.protein - a.protein;
+        return a.name.localeCompare(b.name);
+      });
+      const topHtml = mealItems.map((x) => x.html).join("");
+      if (topHtml) {
+        stations.set("Top High Protein", `<div class="station-items">${topHtml}</div>`);
+        stationOrder.push("Top High Protein");
+      }
     }
 
     if (!stations.size) continue;

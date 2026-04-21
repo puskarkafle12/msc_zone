@@ -2,8 +2,8 @@ services:
   - type: web
     name: msc-zone-menu
     runtime: static
-    buildCommand: ""
-    staticPublishPath: .
+    buildCommand: npm run build
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*

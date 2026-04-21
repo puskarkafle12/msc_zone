@@ -32,9 +32,12 @@ export function itemMatchesFilters(tags, nutrition, activeFilters) {
     if (filter === "healthy") return isHealthy(tags, nutrition);
     if (filter === "vegetarian") return tags.vegetarian;
     if (filter === "nonVeg") return tags.beef || tags.chicken || tags.turkey || tags.pork;
+    if (filter === "beef") return tags.beef;
     if (filter === "chicken") return tags.chicken;
     if (filter === "pork") return tags.pork;
     if (filter === "turkey") return tags.turkey;
+    if (filter === "noBeef") return !tags.beef;
+    if (filter === "noPork") return !tags.pork;
     return true;
   });
 }
