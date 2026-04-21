@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PVAMU Dining Menu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Serif:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles-v2.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>PVAMU Dining Menu</h1>
+            <p class="subtitle">MSC Dining Facility + The Zone</p>
+          </div>
+        </div>
+        <div class="header-controls">
+          <fieldset class="segmented" role="group" aria-label="Venue layout">
+            <legend class="visually-hidden">Venue layout</legend>
+            <button type="button" class="seg-btn active" data-venue="combined" aria-pressed="true">
+              Combined
+            </button>
+            <button type="button" class="seg-btn" data-venue="msc" aria-pressed="false">
+              MSC only
+            </button>
+            <button type="button" class="seg-btn" data-venue="zone" aria-pressed="false">
+              Zone only
+            </button>
+          </fieldset>
+          <button type="button" class="btn ghost" id="toggle-controls-btn">Show controls</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main" id="main">
+      <section class="top-tabs" aria-label="App sections">
+        <button type="button" class="tab-btn active" id="tab-menu-btn">Menu</button>
+        <button type="button" class="tab-btn" id="tab-tracker-btn">Calorie tracker</button>
+        <button type="button" class="tab-btn" id="tab-share-btn">Share app</button>
+      </section>
+
+      <section id="menu-page">
+      <section class="range-panel" id="range-panel" hidden>
+        <div class="range-panel-row">
+          <label class="field">
+            <span class="field-label">Anchor date</span>
+            <input type="date" id="anchor-date-input" />
+          </label>
+          <label class="field">
+            <span class="field-label">Range</span>
+            <select id="range-type-select">
+              <option value="today">Today</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+              <option value="year">Yearly</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label class="field" id="custom-start-field" hidden>
+            <span class="field-label">Custom start</span>
+            <input type="date" id="custom-start-input" />
+          </label>
+          <label class="field" id="custom-end-field" hidden>
+            <span class="field-label">Custom end</span>
+            <input type="date" id="custom-end-input" />
+          </label>
+          <button type="button" class="btn ghost" id="load-range-btn">Load range</button>
+          <button type="button" class="btn ghost" id="copy-menu-btn">Copy menu text</button>
+        </div>
+      </section>
+      <section class="filter-panel" aria-label="Meal and diet filters">
+        <div class="meal-switch" role="tablist" aria-label="Meal selection">
+          <button type="button" class="meal-btn" data-meal-tab="breakfast" aria-pressed="false">Breakfast</button>
+          <button type="button" class="meal-btn active" data-meal-tab="lunch" aria-pressed="true">Lunch</button>
+          <button type="button" class="meal-btn" data-meal-tab="dinner" aria-pressed="false">Dinner</button>
+        </div>
+        <div class="filter-row">
+          <span class="filter-title">Filters</span>
+          <label class="filter-pill"><input type="checkbox" value="highProtein" data-filter /> High protein</label>
+          <label class="filter-pill"><input type="checkbox" value="healthy" data-filter /> Healthy</label>
+          <label class="filter-pill"><input type="checkbox" value="vegetarian" data-filter /> Vegetarian</label>
+          <label class="filter-pill"><input type="checkbox" value="nonVeg" data-filter /> Non-veg</label>
+          <label class="filter-pill"><input type="checkbox" value="chicken" data-filter /> Chicken</label>
+          <label class="filter-pill"><input type="checkbox" value="pork" data-filter /> Pork</label>
+          <label class="filter-pill"><input type="checkbox" value="turkey" data-filter /> Turkey</label>
+          <button type="button" class="btn tiny" id="clear-filters-btn">Clear</button>
+        </div>
+      </section>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="status status-secondary" id="today-fav-status" hidden></div>
+      <div class="status status-secondary" id="upcoming-status" hidden></div>
+      <div class="content" id="content"></div>
+      </section>
+
+      <section id="tracker-page" hidden>
+        <section class="tracker-panel">
+          <div class="tracker-header">
+            <h2>Daily Calorie Tracker</h2>
+            <label class="field">
+              <span class="field-label">Date</span>
+              <input type="date" id="tracker-date-input" />
+            </label>
+          </div>
+          <div class="tracker-graph-controls">
+            <label class="field">
+              <span class="field-label">Graph start</span>
+              <input type="date" id="graph-start-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">Graph end</span>
+              <input type="date" id="graph-end-input" />
+            </label>
+            <label class="field">
+              <span class="field-label">View</span>
+              <select id="graph-group-select">
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </label>
+          </div>
+          <div id="tracker-graph" class="tracker-graph"></div>
+          <p class="tracker-total" id="tracker-total">Total: 0 kcal</p>
+          <div id="tracker-list" class="tracker-list"></div>
+        </section>
+      </section>
+
+      <section id="share-page" hidden>
+        <section class="share-panel">
+          <h2>Share this app</h2>
+          <div class="share-row">
+            <input type="text" id="share-link-input" readonly />
+            <button type="button" class="btn tiny" id="copy-share-link-btn">Copy link</button>
+          </div>
+          <img id="share-qr-img" class="share-qr" alt="QR code for app link" />
+        </section>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Menu data from Sodexo API.
+      </p>
+    </footer>
+
+    <script src="js/main.js" type="module"></script>
+  </body>
+</html>
