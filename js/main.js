@@ -13,9 +13,11 @@ const els = {
   tabMenuBtn: document.getElementById("tab-menu-btn"),
   tabTrackerBtn: document.getElementById("tab-tracker-btn"),
   tabShareBtn: document.getElementById("tab-share-btn"),
+  tabAboutBtn: document.getElementById("tab-about-btn"),
   menuPage: document.getElementById("menu-page"),
   trackerPage: document.getElementById("tracker-page"),
   sharePage: document.getElementById("share-page"),
+  aboutPage: document.getElementById("about-page"),
   toggleControlsBtn: document.getElementById("toggle-controls-btn"),
   rangePanel: document.getElementById("range-panel"),
   anchorDateInput: document.getElementById("anchor-date-input"),
@@ -101,12 +103,15 @@ function setActiveTab(tab) {
   const menu = tab === "menu";
   const tracker = tab === "tracker";
   const share = tab === "share";
+  const about = tab === "about";
   els.menuPage.hidden = !menu;
   els.trackerPage.hidden = !tracker;
   els.sharePage.hidden = !share;
+  els.aboutPage.hidden = !about;
   els.tabMenuBtn.classList.toggle("active", menu);
   els.tabTrackerBtn.classList.toggle("active", tracker);
   els.tabShareBtn.classList.toggle("active", share);
+  els.tabAboutBtn.classList.toggle("active", about);
 }
 
 function setCustomFieldsVisibility() {
@@ -170,6 +175,21 @@ function loadCalorieLogStore() {
   } catch {
     return {};
   }
+}
+
+function todayTrackerCountsMap() {
+  const day = formatISODate(new Date());
+  const store = loadCalorieLogStore();
+  const list = Array.isArray(store[day]) ? store[day] : [];
+  const counts = new Map();
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const name = String(item.name ?? "").trim();
+    if (!name) continue;
+    const qty = Number(item.quantity) || 0;
+    if (qty > 0) counts.set(name.toLowerCase(), qty);
+  }
+  return counts;
 }
 
 function saveCalorieLogStore(store) {
@@ -348,7 +368,19 @@ function wireAddButtons() {
       addCalorieEntry({ name, quantity, caloriesPerUnit });
       renderTracker();
       renderCalorieGraph();
-      setStatus(`Added ${name} (+1) to calorie tracker.`);
+      const card = button.closest(".menu-item");
+      const badge = card ? card.querySelector("[data-add-count-for]") : null;
+      if (badge instanceof HTMLElement) {
+        const counts = todayTrackerCountsMap();
+        const qty = counts.get(name.toLowerCase()) || 0;
+        if (qty > 0) {
+          badge.textContent = String(qty);
+          badge.hidden = false;
+        } else {
+          badge.hidden = true;
+          badge.textContent = "";
+        }
+      }
     });
   });
 }
@@ -516,6 +548,7 @@ async function loadMenus() {
   setStatus(`Loading ${range.type} menu...`);
   setTodayFavoriteStatus("");
   setUpcomingStatus("");
+  const trackerCounts = todayTrackerCountsMap();
   els.content.innerHTML = "";
   let html = '<section class="menu-stack">';
   try {
@@ -542,6 +575,7 @@ async function loadMenus() {
         panelBody = renderCombinedComparison(byVenue.msc, byVenue.zone, {
           activeFilters: filters,
           favorites,
+          trackerCounts,
           mealFilters,
           hideMealTitles: mealFilters.length === 1,
           dayLabel: label,
@@ -550,6 +584,7 @@ async function loadMenus() {
         const single = renderMealsWithOptions(byVenue[venueMode], {
           activeFilters: filters,
           favorites,
+          trackerCounts,
           mealFilters,
           hideMealTitles: mealFilters.length === 1,
           dayLabel: label,
@@ -575,8 +610,7 @@ async function loadMenus() {
     lastRenderText = createCopyText();
     const todayFavText = await getTodayFavoritesText();
     setTodayFavoriteStatus(todayFavText);
-    const upcomingText = await getUpcomingWeekFavoritesText();
-    setUpcomingStatus(upcomingText);
+    setUpcomingStatus("");
   } catch (error) {
     setStatus(error instanceof Error ? error.message : String(error), true);
     setTodayFavoriteStatus("");
@@ -630,6 +664,7 @@ els.tabTrackerBtn.addEventListener("click", () => {
   renderCalorieGraph();
 });
 els.tabShareBtn.addEventListener("click", () => setActiveTab("share"));
+els.tabAboutBtn.addEventListener("click", () => setActiveTab("about"));
 els.copyShareLinkBtn.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(els.shareLinkInput.value);

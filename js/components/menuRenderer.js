@@ -64,7 +64,7 @@ function nutritionLine(item) {
   return { calories, protein };
 }
 
-function renderItemCard(name, item, tags, favorites, highProtein, healthy) {
+function renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount) {
   const tagsMarkup = [];
   if (tags.vegetarian) tagsMarkup.push('<span class="meta-chip meta-vegetarian">Vegetarian</span>');
   if (healthy) tagsMarkup.push('<span class="meta-chip meta-healthy">Healthy pick</span>');
@@ -84,6 +84,7 @@ function renderItemCard(name, item, tags, favorites, highProtein, healthy) {
         <div class="item-top">
           <h5 class="item-name">${escapeHtml(name)}</h5>
           <div class="item-actions">
+            <span class="add-count-badge" data-add-count-for="${escapeHtml(name)}" ${trackedCount > 0 ? "" : "hidden"}>${trackedCount > 0 ? `${trackedCount}` : ""}</span>
             <button type="button" class="add-btn" data-add-item="${escapeHtml(name)}" data-add-calories="${caloriesNumber(item) ?? ""}" aria-label="Add to calorie tracker">+ Add</button>
             <button type="button" class="${favClass}" data-favorite-name="${escapeHtml(name)}" aria-label="Toggle favorite">★</button>
           </div>
@@ -176,6 +177,7 @@ export function renderMealsWithOptions(payload, options) {
 
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
+  const trackerCounts = options.trackerCounts ?? new Map();
   const mealFilters = options.mealFilters ?? [];
   const hideMealTitles = Boolean(options.hideMealTitles);
   const highProteinMode = activeFilters.includes("highProtein");
@@ -226,8 +228,9 @@ export function renderMealsWithOptions(payload, options) {
         });
         const headerName = stationHeaderForItem(item, groupName);
         if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
+        const trackedCount = trackerCounts.get(name.toLowerCase()) || 0;
         renderedByHeader.get(headerName).push({
-          html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
+          html: renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount),
           protein: nutrition.protein ?? -1,
           name,
         });
@@ -404,6 +407,7 @@ function buildMealStationMap(payload, options) {
   const mealFilters = options.mealFilters ?? [];
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
+  const trackerCounts = options.trackerCounts ?? new Map();
   const highProteinMode = activeFilters.includes("highProtein");
   const mealMap = new Map();
   const mealOrder = [];
@@ -438,8 +442,9 @@ function buildMealStationMap(payload, options) {
         const highProtein = isHighProtein(nutrition);
         const headerName = stationHeaderForItem(item, groupName);
         if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
+        const trackedCount = trackerCounts.get(name.toLowerCase()) || 0;
         renderedByHeader.get(headerName).push({
-          html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
+          html: renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount),
           protein: nutrition.protein ?? -1,
           name,
         });
