@@ -133,3 +133,19 @@ test('changing an upstream menu ID invalidates old cached menu data', async () =
     LOCATIONS.msc.menuId = originalId;
   }
 });
+
+test('Savory is the first station at both venues even when it comes from a later API group', () => {
+  const meals = [{name: 'Lunch', groups: [
+    {name: "Chef's Table", items: [{name: 'Chef dish'}]},
+    {name: 'Bakery', items: [{name: 'Bread'}]},
+    {name: 'Other', items: [{name: 'Side', course: 'Sides'}, {name: 'Savory entree', course: 'Savory'}]},
+  ]}];
+  const html = renderCombinedComparison(meals, meals, {mealFilters: ['lunch']});
+  const panels = html.split('<article class="venue-panel">').slice(1);
+  assert.equal(panels.length, 2);
+  for (const panel of panels) {
+    const headings = [...panel.matchAll(/<h4 class="station-name [^"]*">([^<]+)<\/h4>/g)].map(m => m[1]);
+    assert.equal(headings[0], 'Savory');
+    assert.match(panel, /Savory entree/);
+  }
+});

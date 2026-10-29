@@ -87,6 +87,7 @@ function renderItemCard(name, item, tags, favorites, highProtein, healthy) {
 
 function stationSortValue(name) {
   const t = String(name || "").toLowerCase();
+  if (t.trim() === "savory") return -1;
   if (t.includes("chef") && t.includes("table")) return 0;
   return 1;
 }
@@ -194,13 +195,13 @@ export function renderMealsWithOptions(payload, options) {
 
     let groupHtml = "";
     const mealItems = [];
+    const renderedByHeader = new Map();
     for (const group of sortedGroups) {
       if (!group || typeof group !== "object") continue;
       const groupName = group.name ?? group.station ?? group.category ?? "Station";
       const items = group.items ?? group.products ?? group.recipes ?? [];
       if (!Array.isArray(items) || !items.length) continue;
 
-      const renderedByHeader = new Map();
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
         const tags = classifyItem(item);
@@ -229,28 +230,28 @@ export function renderMealsWithOptions(payload, options) {
           name,
         });
       }
-      const sections = [...renderedByHeader.entries()].sort((a, b) => {
-        const sa = stationSortValue(a[0]);
-        const sb = stationSortValue(b[0]);
-        if (sa !== sb) return sa - sb;
-        return a[0].localeCompare(b[0]);
-      });
-      for (const [headerName, renderedItems] of sections) {
-        if (highProteinMode) {
-          renderedItems.sort((a, b) => {
-            if (b.protein !== a.protein) return b.protein - a.protein;
-            return a.name.localeCompare(b.name);
-          });
-          mealItems.push(...renderedItems);
-        } else {
-          const itemHtml = renderedItems.map((x) => x.html).join("");
-          if (!itemHtml) continue;
-          groupHtml += `
-            <section class="station-block">
-              <h4 class="station-name ${stationClassName(headerName)}">${escapeHtml(headerName)}</h4>
-              <div class="station-items">${itemHtml}</div>
-            </section>`;
-        }
+    }
+    const sections = [...renderedByHeader.entries()].sort((a, b) => {
+      const sa = stationSortValue(a[0]);
+      const sb = stationSortValue(b[0]);
+      if (sa !== sb) return sa - sb;
+      return a[0].localeCompare(b[0]);
+    });
+    for (const [headerName, renderedItems] of sections) {
+      if (highProteinMode) {
+        renderedItems.sort((a, b) => {
+          if (b.protein !== a.protein) return b.protein - a.protein;
+          return a.name.localeCompare(b.name);
+        });
+        mealItems.push(...renderedItems);
+      } else {
+        const itemHtml = renderedItems.map((x) => x.html).join("");
+        if (!itemHtml) continue;
+        groupHtml += `
+          <section class="station-block">
+            <h4 class="station-name ${stationClassName(headerName)}">${escapeHtml(headerName)}</h4>
+            <div class="station-items">${itemHtml}</div>
+          </section>`;
       }
     }
 
