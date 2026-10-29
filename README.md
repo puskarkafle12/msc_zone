@@ -55,4 +55,4 @@ This app is configured as an installable Progressive Web App.
   - Open deployed URL
   - Tap **Share** -> **Add to Home Screen**
 
-The calorie tracker and Add actions have been removed. Selecting High protein opens both lunch and dinner at both venues (15g+ protein per item); meal and venue buttons can narrow that view afterward.
+The calorie tracker and Add actions have been removed. Selecting any food filter opens one combined lunch + dinner list for both venues, ranked by protein across all results. Every row labels its venue and meal; the highest-protein match is highlighted first. High protein requires 15g+ per item. Meal and venue buttons can narrow the list afterward.

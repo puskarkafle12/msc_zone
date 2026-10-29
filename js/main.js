@@ -1,6 +1,6 @@
 import { formatISODate, fromInputDate, dateRangeForType, eachDate } from "./utils/date.js";
 import { fetchMenu, normalizeMeals } from "./services/menuApi.js";
-import { renderMealsWithOptions, renderVenuePanel, renderDayCard, renderCombinedComparison, escapeHtml } from "./components/menuRenderer.js";
+import { renderMealsWithOptions, renderVenuePanel, renderDayCard, renderCombinedComparison, renderFilteredList, escapeHtml } from "./components/menuRenderer.js";
 
 /** @type {'combined' | 'msc' | 'zone'} */
 let venueMode = "combined";
@@ -272,6 +272,11 @@ async function loadMenus() {
     return;
   }
 
+  const filtered = activeFilters().length > 0 || favoritesOnly;
+  const favoritesPanel = document.querySelector(".favorites-panel");
+  if (filtered) els.content.after(favoritesPanel);
+  else els.rangePanel.before(favoritesPanel);
+  const filteredMenus = [];
   setStatus(`Loading ${range.type} menu...`);
   els.content.innerHTML = "";
   let html = '<section class="menu-stack">';
@@ -290,6 +295,10 @@ async function loadMenus() {
       const filters = activeFilters();
       const mealFilters = activeMealFilters();
       const favorites = loadFavorites();
+      if (filtered) {
+        for (const [venue, payload] of Object.entries(byVenue)) filteredMenus.push({venue, payload, dayLabel: label});
+        continue;
+      }
       let panelBody = "";
       if (venueMode === "combined") {
         panelBody = renderCombinedComparison(byVenue.msc, byVenue.zone, {
@@ -315,7 +324,10 @@ async function loadMenus() {
     }
 
     html += "</section>";
-    els.content.innerHTML = html;
+    els.content.innerHTML = filtered ? renderFilteredList(filteredMenus, {
+      activeFilters: activeFilters(), favorites: loadFavorites(), favoritesOnly,
+      mealFilters: activeMealFilters(), showDates: days.length > 1,
+    }) : html;
 
     if (range.type === "today") {
       setStatus(range.start.toDateString() === new Date().toDateString()
@@ -342,6 +354,12 @@ async function loadMenus() {
 
 document.getElementById("favorites-only-btn").addEventListener("click", (event) => {
   favoritesOnly = !favoritesOnly;
+  if (favoritesOnly) {
+    selectedMeal = "lunchDinner";
+    venueMode = "combined";
+    setMealButtons();
+    setVenueButtons();
+  }
   event.currentTarget.setAttribute("aria-pressed", String(favoritesOnly));
   event.currentTarget.textContent = favoritesOnly ? "Show all items" : "Favourites only";
   loadMenus();
@@ -363,7 +381,7 @@ els.clearFiltersBtn.addEventListener("click", () => {
 });
 document.querySelectorAll("[data-filter]").forEach((node) => {
   node.addEventListener("change", () => {
-    if (node.value === "highProtein" && node.checked) {
+    if (node.checked) {
       selectedMeal = "lunchDinner";
       venueMode = "combined";
       setMealButtons();

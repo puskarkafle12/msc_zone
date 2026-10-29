@@ -293,6 +293,66 @@ export function renderMealsWithOptions(payload, options) {
   return { html: mealHtml, visibleItems, recommended, allNames };
 }
 
+// Flatten venue/meal/station groups before sorting so the top result is global.
+export function renderFilteredList(menus, options = {}) {
+  const filters = options.activeFilters ?? [];
+  const favorites = options.favorites ?? new Set();
+  const mealFilters = options.mealFilters ?? ["lunch", "dinner"];
+  const rows = new Map();
+  const notices = [];
+  for (const {venue, payload, dayLabel = ""} of menus) {
+    const venueLabel = venue === "msc" ? "MSC" : "The Zone";
+    if (payload?.error) {
+      notices.push(`${venueLabel} · ${dayLabel}: ${payload.error}`);
+      continue;
+    }
+    const meals = normalizeMeals(payload);
+    if (!meals.length) notices.push(`${venueLabel} · ${dayLabel}: no menu published for this date.`);
+    for (const meal of meals) {
+      if (!meal || typeof meal !== "object") continue;
+      const mealName = String(meal.name ?? meal.meal ?? meal.mealPeriod ?? meal.title ?? "Meal");
+      const mealKey = canonicalMealKey(mealName);
+      if (mealFilters.length && !mealFilters.includes(mealKey)) continue;
+      const groups = meal.groups ?? meal.stations ?? meal.Station ?? meal.categories ?? meal.items ?? [];
+      for (const group of Array.isArray(groups) ? groups : []) {
+        if (!group || typeof group !== "object") continue;
+        const items = group.items ?? group.products ?? group.recipes ?? [];
+        for (const item of Array.isArray(items) ? items : []) {
+          if (!item || typeof item !== "object") continue;
+          const name = itemName(item);
+          const nutrition = buildNutrition(item);
+          if (!itemMatchesFilters(classifyItem(item), nutrition, filters)) continue;
+          if (options.favoritesOnly && !favorites.has(name.toLowerCase())) continue;
+          const key = JSON.stringify([venue, dayLabel, mealKey, name.toLowerCase()]);
+          if (!rows.has(key)) rows.set(key, {name, nutrition, venueLabel, mealName, dayLabel});
+        }
+      }
+    }
+  }
+  const ranked = [...rows.values()].sort((a, b) =>
+    (b.nutrition.protein ?? -1) - (a.nutrition.protein ?? -1) ||
+    a.name.localeCompare(b.name) || a.venueLabel.localeCompare(b.venueLabel) || a.mealName.localeCompare(b.mealName));
+  const cards = ranked.map((row, index) => {
+    const saved = favorites.has(row.name.toLowerCase());
+    return `<li class="ranked-item${index === 0 ? " top-result" : ""}${saved ? " is-favorite" : ""}">
+      <span class="result-rank" aria-label="Rank ${index + 1}">${index + 1}</span>
+      <div class="ranked-item-body">
+        ${index === 0 && row.nutrition.protein !== null ? '<span class="top-result-label">Highest protein match</span>' : ""}
+        <h3 class="ranked-item-name">${escapeHtml(row.name)}</h3>
+        <p class="result-context"><span class="result-venue">${escapeHtml(row.venueLabel)}</span><span class="result-meal">${escapeHtml(row.mealName)}</span></p>
+        ${options.showDates ? `<p class="result-date">${escapeHtml(row.dayLabel)}</p>` : ""}
+        <p class="result-nutrition"><strong>${row.nutrition.protein !== null ? `${row.nutrition.protein}g protein` : "Protein unavailable"}</strong>${row.nutrition.calories !== null ? ` <span>· ${row.nutrition.calories} kcal</span>` : ""}</p>
+      </div>
+      <button type="button" class="fav-btn${saved ? " active" : ""}" data-favorite-name="${escapeHtml(row.name)}" aria-label="${saved ? "Remove" : "Save"} ${escapeHtml(row.name)} ${saved ? "from" : "to"} favourites" aria-pressed="${saved}">★</button>
+    </li>`;
+  }).join("");
+  return `<section class="ranked-results" aria-labelledby="ranked-heading">
+    <header class="ranked-results-header"><h2 id="ranked-heading">${ranked.length} matching ${ranked.length === 1 ? "item" : "items"}</h2><p>One list · highest protein first</p></header>
+    ${notices.map(note => `<p class="empty-note">${escapeHtml(note)}</p>`).join("")}
+    ${cards ? `<ol class="ranked-list">${cards}</ol>` : '<p class="empty-note">No items match your filters. Try clearing a preference or choosing another date.</p>'}
+  </section>`;
+}
+
 export function renderCombinedComparison(mscPayload, zonePayload, options) {
   const mealFilters = options.mealFilters ?? [];
   if (mealFilters.length > 1) {

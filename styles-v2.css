@@ -1123,3 +1123,28 @@ button { min-height: 44px; }
   .meal-switch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .filter-panel .segmented .seg-btn { font-size: .9rem; }
 }
+
+/* Filtered results share a single ranking across venues and meals. */
+.ranked-results { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); margin-bottom: 1rem; }
+.ranked-results-header h2 { margin: 0; font-size: 1.2rem; }
+.ranked-results-header p { color: var(--muted); margin: .3rem 0 1rem; font-size: .9rem; }
+.ranked-list { list-style: none; padding: 0; margin: 0; display: grid; gap: .65rem; }
+.ranked-item { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: start; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: 12px; }
+.ranked-item.top-result { background: #eef2ff; border: 2px solid #6366f1; }
+.result-rank { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: #f1f5f9; color: #475569; font-weight: 700; }
+.top-result .result-rank { background: #3730a3; color: #fff; }
+.top-result-label { display: block; color: #3730a3; font-weight: 700; font-size: .78rem; margin-bottom: .3rem; }
+.ranked-item-name { font-size: 1.05rem; margin: 0; line-height: 1.4; overflow-wrap: anywhere; }
+.result-context { display: flex; gap: .4rem; flex-wrap: wrap; margin: .5rem 0; }
+.result-context span { border-radius: 6px; padding: .25rem .5rem; font-size: .85rem; font-weight: 700; }
+.result-venue { background: #e0e7ff; color: #312e81; }
+.result-meal { background: #fef3c7; color: #78350f; }
+.result-date { font-size: .85rem; color: var(--muted); margin: .35rem 0; }
+.result-nutrition { margin: .35rem 0 0; color: #334155; font-size: .9rem; }
+.result-nutrition strong { color: #3730a3; }
+@media (max-width: 700px) {
+  .ranked-results { padding: .75rem; }
+  .ranked-item { padding: .75rem .5rem; gap: .5rem; grid-template-columns: 1.6rem minmax(0, 1fr) 44px; }
+  .result-rank { width: 1.6rem; height: 1.6rem; font-size: .8rem; }
+  .ranked-item-name { font-size: 1rem; }
+}

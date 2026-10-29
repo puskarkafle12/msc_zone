@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderMealsWithOptions, renderCombinedComparison } from '../js/components/menuRenderer.js';
+import { renderMealsWithOptions, renderCombinedComparison, renderFilteredList } from '../js/components/menuRenderer.js';
 import { fetchMenu } from '../js/services/menuApi.js';
 
 const payload = [{name: 'Lunch', groups: [{name: 'Grill', items: [
@@ -78,4 +78,34 @@ test('high-protein comparison includes lunch and dinner for both venues without 
   assert.doesNotMatch(html, /Breakfast chicken|Lunch rice|Dinner rice|data-add-item|calorie tracker/);
   assert.equal((html.match(/class="venue-panel"/g) ?? []).length, 4);
   assert.equal((html.match(/comparison-meal-heading/g) ?? []).length, 2);
+});
+
+test('one filtered list ranks all venues and meals globally with clear context', () => {
+  const meal = (name, food, protein) => ({name, groups: [{name: 'Grill', items: [{name: food, protein}]}]});
+  const menus = [
+    {venue: 'msc', payload: [meal('Lunch', 'MSC lunch dish', 20), meal('Dinner', 'MSC dinner dish', 30), meal('Breakfast', 'Breakfast excluded', 80)]},
+    {venue: 'zone', payload: [meal('Lunch', 'Zone lunch dish', 25), meal('Dinner', 'Zone dinner dish', 45)]},
+  ];
+  const html = renderFilteredList(menus, {activeFilters: ['highProtein']});
+  const names = [...html.matchAll(/class="ranked-item-name">([^<]+)/g)].map(m => m[1]);
+  assert.deepEqual(names, ['Zone dinner dish', 'MSC dinner dish', 'Zone lunch dish', 'MSC lunch dish']);
+  assert.equal((html.match(/<ol /g) ?? []).length, 1);
+  assert.match(html, /Highest protein match/);
+  const first = html.slice(html.indexOf('<li '), html.indexOf('</li>'));
+  assert.match(first, /The Zone/);
+  assert.match(first, /Dinner/);
+  assert.match(first, /45g protein/);
+  assert.doesNotMatch(html, /Breakfast excluded|venue-panel|station-block/);
+});
+
+test('other filters also use a combined list, deduplicate stations, and preserve missing-data notices', () => {
+  const healthy = {name: 'Veggie bowl', protein: 18, calories: 400};
+  const meals = [{name: 'Lunch', groups: [{items: [healthy, healthy, {name: 'High calorie dish', protein: 30, calories: 900}]}]}];
+  const html = renderFilteredList([{venue: 'msc', payload: meals}, {venue: 'zone', payload: {error: 'HTTP 503'}}], {activeFilters: ['healthy']});
+  assert.equal((html.match(/class="ranked-item-name">Veggie bowl/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /High calorie dish/);
+  assert.match(html, /The Zone.*HTTP 503/);
+  const saved = renderFilteredList([{venue: 'msc', payload: meals}], {favoritesOnly: true, favorites: new Set(['veggie bowl'])});
+  assert.match(saved, /aria-pressed="true"/);
+  assert.doesNotMatch(saved, /High calorie dish/);
 });
