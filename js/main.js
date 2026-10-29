@@ -1,10 +1,12 @@
 import { formatISODate, fromInputDate, dateRangeForType, eachDate } from "./utils/date.js";
 import { fetchMenu, normalizeMeals } from "./services/menuApi.js";
-import { renderMealsWithOptions, renderVenuePanel, renderHolidayCard, renderDayCard, renderCombinedComparison } from "./components/menuRenderer.js";
+import { renderMealsWithOptions, renderVenuePanel, renderDayCard, renderCombinedComparison, escapeHtml } from "./components/menuRenderer.js";
 
 /** @type {'combined' | 'msc' | 'zone'} */
 let venueMode = "combined";
 let selectedMeal = "lunch";
+let favoritesOnly = false;
+let menuLoadId = 0;
 let lastRenderText = "";
 const FAVORITES_KEY = "pvamu_menu_favorites_v1";
 const CALORIE_LOG_KEY = "pvamu_calorie_log_v1";
@@ -40,8 +42,6 @@ const els = {
   copyShareLinkBtn: document.getElementById("copy-share-link-btn"),
   shareQrImg: document.getElementById("share-qr-img"),
   status: document.getElementById("status"),
-  todayFavStatus: document.getElementById("today-fav-status"),
-  upcomingStatus: document.getElementById("upcoming-status"),
   content: document.getElementById("content"),
 };
 
@@ -69,34 +69,9 @@ function saveFavorites(set) {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify([...set.values()]));
 }
 
-function isWeekend(date) {
-  const day = date.getDay();
-  return day === 0 || day === 6;
-}
-
 function setStatus(message, isError = false) {
   els.status.textContent = message;
   els.status.classList.toggle("error", isError);
-}
-
-function setUpcomingStatus(message) {
-  if (!message) {
-    els.upcomingStatus.hidden = true;
-    els.upcomingStatus.textContent = "";
-    return;
-  }
-  els.upcomingStatus.hidden = false;
-  els.upcomingStatus.textContent = message;
-}
-
-function setTodayFavoriteStatus(message) {
-  if (!message) {
-    els.todayFavStatus.hidden = true;
-    els.todayFavStatus.textContent = "";
-    return;
-  }
-  els.todayFavStatus.hidden = false;
-  els.todayFavStatus.textContent = message;
 }
 
 function setActiveTab(tab) {
@@ -162,8 +137,11 @@ async function fetchByVenue(isoDate) {
   if (needMsc) tasks.push(fetchMenu("msc", isoDate).then((data) => ({ key: "msc", data })));
   if (needZone) tasks.push(fetchMenu("zone", isoDate).then((data) => ({ key: "zone", data })));
 
-  const all = await Promise.all(tasks);
-  return Object.fromEntries(all.map((item) => [item.key, item.data]));
+  const all = await Promise.allSettled(tasks);
+  const keys = [needMsc ? "msc" : null, needZone ? "zone" : null].filter(Boolean);
+  return Object.fromEntries(all.map((result, index) => result.status === "fulfilled"
+    ? [result.value.key, result.value.data]
+    : [keys[index], { error: result.reason instanceof Error ? result.reason.message : "Menu request failed." }]));
 }
 
 function loadCalorieLogStore() {
@@ -345,7 +323,7 @@ function renderCalorieGraph() {
 
 function wireFavoriteButtons() {
   const favorites = loadFavorites();
-  document.querySelectorAll("[data-favorite-name]").forEach((button) => {
+  els.content.querySelectorAll("[data-favorite-name]").forEach((button) => {
     button.addEventListener("click", () => {
       const rawName = button.getAttribute("data-favorite-name") || "";
       const key = rawName.toLowerCase();
@@ -385,95 +363,62 @@ function wireAddButtons() {
   });
 }
 
-async function getUpcomingWeekFavoritesText() {
+function renderSavedFavorites() {
   const favorites = loadFavorites();
-  if (!favorites.size) return "";
-
-  const today = new Date();
-  const future = new Date(today);
-  future.setDate(today.getDate() + 6);
-  const days = eachDate(today, future);
-  const matches = [];
-
-  for (const day of days) {
-    if (isWeekend(day)) continue;
-    const iso = formatISODate(day);
-    const byVenue = await fetchByVenue(iso);
-    const label = day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const mealFilters = activeMealFilters();
-
-    /** @param {unknown} payload @param {"MSC"|"ZONE"} venueLabel */
-    const collectMatches = (payload, venueLabel) => {
-      const meals = normalizeMeals(payload);
-      for (const meal of meals) {
-        if (!meal || typeof meal !== "object") continue;
-        const mealName = String(meal.name ?? meal.meal ?? meal.mealPeriod ?? meal.title ?? "Meal");
-        const mealText = mealName.toLowerCase();
-        if (mealFilters.length && !mealFilters.some((k) => mealText.includes(k))) continue;
-        const groups = meal.groups ?? meal.stations ?? meal.Station ?? meal.categories ?? meal.items ?? [];
-        if (!Array.isArray(groups)) continue;
-        for (const group of groups) {
-          if (!group || typeof group !== "object") continue;
-          const items = group.items ?? group.products ?? group.recipes ?? [];
-          if (!Array.isArray(items)) continue;
-          for (const item of items) {
-            if (!item || typeof item !== "object") continue;
-            const name = String(item.formalName ?? item.name ?? item.title ?? "Item").trim();
-            if (!favorites.has(name.toLowerCase())) continue;
-            matches.push(`${name} (${label}, ${venueLabel}, ${mealName})`);
-          }
-        }
-      }
-    };
-
-    if (venueMode === "combined" || venueMode === "msc") {
-      collectMatches(byVenue.msc, "MSC");
-    }
-    if (venueMode === "combined" || venueMode === "zone") {
-      collectMatches(byVenue.zone, "ZONE");
-    }
+  document.getElementById("favorites-count").textContent = favorites.size;
+  const saved = document.getElementById("saved-favorites");
+  saved.replaceChildren();
+  for (const name of favorites) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "saved-favorite";
+    button.textContent = `★ ${name} ×`;
+    button.setAttribute("aria-label", `Remove ${name} from favourites`);
+    button.addEventListener("click", () => {
+      const current = loadFavorites();
+      current.delete(name);
+      saveFavorites(current);
+      loadMenus();
+    });
+    saved.append(button);
   }
-
-  const unique = [...new Set(matches)].slice(0, 10);
-  if (!unique.length) return "Upcoming week favorites found: none";
-  return `Upcoming week favorites found: ${unique.join(", ")}`;
+  document.getElementById("favorite-matches").textContent = favorites.size
+    ? "Checking today's favourites…"
+    : "Tap ★ on any menu item to keep your favourites here. Saved on this device.";
 }
 
-async function getTodayFavoritesText() {
+async function renderTodayFavorites(loadId) {
   const favorites = loadFavorites();
-  if (!favorites.size) return "";
-  const today = new Date();
-  if (isWeekend(today)) return "Today's favorite items: none (holiday/weekend)";
-  const iso = formatISODate(today);
-  const byVenue = await fetchByVenue(iso);
-  const found = [];
-
-  const collect = (payload, venueLabel) => {
-    const meals = normalizeMeals(payload);
-    for (const meal of meals) {
-      if (!meal || typeof meal !== "object") continue;
+  if (!favorites.size) return;
+  const today = formatISODate(new Date());
+  const results = await Promise.allSettled(["msc", "zone"].map(async (venue) => {
+    const payload = await fetchMenu(venue, today);
+    const matches = [];
+    for (const meal of normalizeMeals(payload)) {
       const mealName = String(meal.name ?? meal.meal ?? meal.mealPeriod ?? meal.title ?? "Meal");
       const groups = meal.groups ?? meal.stations ?? meal.Station ?? meal.categories ?? meal.items ?? [];
-      if (!Array.isArray(groups)) continue;
-      for (const group of groups) {
-        if (!group || typeof group !== "object") continue;
+      for (const group of Array.isArray(groups) ? groups : []) {
         const items = group.items ?? group.products ?? group.recipes ?? [];
-        if (!Array.isArray(items)) continue;
-        for (const item of items) {
-          if (!item || typeof item !== "object") continue;
+        for (const item of Array.isArray(items) ? items : []) {
           const name = String(item.formalName ?? item.name ?? item.title ?? "Item").trim();
-          if (!favorites.has(name.toLowerCase())) continue;
-          found.push(`${name} (${venueLabel}, ${mealName})`);
+          if (favorites.has(name.toLowerCase())) matches.push({name, mealName, venue});
         }
       }
     }
-  };
-
-  if (venueMode === "combined" || venueMode === "msc") collect(byVenue.msc, "MSC");
-  if (venueMode === "combined" || venueMode === "zone") collect(byVenue.zone, "ZONE");
-  const unique = [...new Set(found)].slice(0, 10);
-  if (!unique.length) return "Today's favorite items: none";
-  return `Today's favorite items: ${unique.join(", ")}`;
+    return matches;
+  }));
+  if (loadId !== menuLoadId) return;
+  const matches = results.flatMap(r => r.status === "fulfilled" ? r.value : []);
+  const unique = [...new Map(matches.map(m => [`${m.name}:${m.venue}:${m.mealName}`, m])).values()];
+  const target = document.getElementById("favorite-matches");
+  target.innerHTML = unique.map(m => `<article class="favorite-match"><strong>★ ${escapeHtml(m.name)}</strong><span>Today · ${m.venue === "msc" ? "MSC" : "The Zone"} · ${escapeHtml(m.mealName)}</span></article>`).join("");
+  const note = document.createElement("p");
+  note.className = "favorites-note";
+  note.textContent = results.some(r => r.status === "rejected")
+    ? "Some menus could not be checked. Your saved favourites are still above."
+    : unique.length ? "Today's matches across both venues and all meals. Menu filters apply below."
+    : "No saved favourites on today's published menus. Your saved list stays here.";
+  target.append(note);
 }
 
 function createCopyText() {
@@ -492,7 +437,6 @@ async function buildFullCopyText() {
   let out = [`PVAMU Menu Export`, `Range: ${range.type}`, ``];
 
   for (const date of days) {
-    if (isWeekend(date)) continue;
     const iso = formatISODate(date);
     const dayLabel = date.toLocaleDateString("en-US", {
       weekday: "long",
@@ -534,6 +478,9 @@ async function buildFullCopyText() {
 }
 
 async function loadMenus() {
+  const loadId = ++menuLoadId;
+  renderSavedFavorites();
+  renderTodayFavorites(loadId).catch(() => {});
   const anchor = fromInputDate(els.anchorDateInput.value);
   const customStart = fromInputDate(els.customStartInput.value);
   const customEnd = fromInputDate(els.customEndInput.value);
@@ -546,8 +493,6 @@ async function loadMenus() {
   }
 
   setStatus(`Loading ${range.type} menu...`);
-  setTodayFavoriteStatus("");
-  setUpcomingStatus("");
   const trackerCounts = todayTrackerCountsMap();
   els.content.innerHTML = "";
   let html = '<section class="menu-stack">';
@@ -560,13 +505,9 @@ async function loadMenus() {
         year: "numeric",
       });
 
-      if (isWeekend(date)) {
-        html += renderHolidayCard(label);
-        continue;
-      }
-
       const iso = formatISODate(date);
       const byVenue = await fetchByVenue(iso);
+      if (loadId !== menuLoadId) return;
       const filters = activeFilters();
       const mealFilters = activeMealFilters();
       const favorites = loadFavorites();
@@ -574,6 +515,7 @@ async function loadMenus() {
       if (venueMode === "combined") {
         panelBody = renderCombinedComparison(byVenue.msc, byVenue.zone, {
           activeFilters: filters,
+          favoritesOnly,
           favorites,
           trackerCounts,
           mealFilters,
@@ -583,6 +525,7 @@ async function loadMenus() {
       } else {
         const single = renderMealsWithOptions(byVenue[venueMode], {
           activeFilters: filters,
+          favoritesOnly,
           favorites,
           trackerCounts,
           mealFilters,
@@ -598,7 +541,9 @@ async function loadMenus() {
     els.content.innerHTML = html;
 
     if (range.type === "today") {
-      setStatus("Showing today's menu.");
+      setStatus(range.start.toDateString() === new Date().toDateString()
+        ? "Showing today’s menu."
+        : `Showing menu for ${range.start.toLocaleDateString("en-US", {month: "short", day: "numeric", year: "numeric"})}.`);
     } else {
       const startLabel = range.start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       const endLabel = range.end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -608,22 +553,27 @@ async function loadMenus() {
     wireFavoriteButtons();
     wireAddButtons();
     lastRenderText = createCopyText();
-    const todayFavText = await getTodayFavoritesText();
-    setTodayFavoriteStatus(todayFavText);
-    setUpcomingStatus("");
+
   } catch (error) {
+    if (loadId !== menuLoadId) return;
     setStatus(error instanceof Error ? error.message : String(error), true);
-    setTodayFavoriteStatus("");
-    setUpcomingStatus("");
     els.content.innerHTML = '<p class="empty-note">Unable to load menu right now. Please try again.</p>';
   }
 }
+
+document.getElementById("favorites-only-btn").addEventListener("click", (event) => {
+  favoritesOnly = !favoritesOnly;
+  event.currentTarget.setAttribute("aria-pressed", String(favoritesOnly));
+  event.currentTarget.textContent = favoritesOnly ? "Show all items" : "Favourites only";
+  loadMenus();
+});
 
 els.rangeTypeSelect.addEventListener("change", setCustomFieldsVisibility);
 els.loadRangeBtn.addEventListener("click", loadMenus);
 els.toggleControlsBtn.addEventListener("click", () => {
   const willShow = els.rangePanel.hidden;
   els.rangePanel.hidden = !willShow;
+  els.toggleControlsBtn.setAttribute("aria-expanded", String(willShow));
   els.toggleControlsBtn.textContent = willShow ? "Hide controls" : "Show controls";
 });
 els.clearFiltersBtn.addEventListener("click", () => {

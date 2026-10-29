@@ -6,15 +6,10 @@ export const LOCATIONS = {
   zone: { key: "zone", name: "The Zone", siteId: "77011012", locationId: "15924" },
 };
 
+// Browser-safe headers only; the browser supplies Origin and Referer itself.
 export const REQUEST_HEADERS = {
-  accept: "*/*",
-  "accept-language": "en-US,en;q=0.9",
+  accept: "application/json",
   "api-key": API_KEY,
-  authorization: "Bearer",
-  "content-type": "application/json",
-  origin: "https://pvamu.sodexomyway.com",
-  referer: "https://pvamu.sodexomyway.com/",
-  "user-agent": "Mozilla/5.0",
 };
 
 export const TAG_KEYWORDS = {
