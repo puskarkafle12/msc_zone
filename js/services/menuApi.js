@@ -6,7 +6,8 @@ const memoryCache = new Map();
 const pendingRequests = new Map();
 
 function cacheId(locationKey, isoDate) {
-  return `${locationKey}::${isoDate}`;
+  const location = LOCATIONS[locationKey];
+  return `${locationKey}::${location.siteId}::${location.menuId}::${isoDate}`;
 }
 
 function loadPersistedCache() {
@@ -62,8 +63,8 @@ export async function fetchMenu(locationKey, isoDate) {
   if (existingPending) return existingPending;
 
   const location = LOCATIONS[locationKey];
-  const url = `${BASE_URL}/${location.siteId}/${location.locationId}?date=${encodeURIComponent(isoDate)}`;
-  const pending = fetch(url, { headers: REQUEST_HEADERS, mode: "cors" })
+  const url = `${BASE_URL}/${location.siteId}/${location.menuId}?date=${encodeURIComponent(isoDate)}`;
+  const pending = fetch(url, { headers: REQUEST_HEADERS, mode: "cors", signal: AbortSignal.timeout(20000) })
     .then((response) => {
       if (!response.ok) {
         throw new Error(`Failed ${location.name} (${isoDate}) with HTTP ${response.status}`);
@@ -71,8 +72,18 @@ export async function fetchMenu(locationKey, isoDate) {
       return response.json();
     })
     .then((data) => {
+      if (!Array.isArray(data) && !(data && typeof data === "object" &&
+        [data.meals, data.MealPeriods, data.menu].some(Array.isArray))) {
+        throw new Error(`Unexpected menu response from ${location.name}`);
+      }
       writeCache(locationKey, isoDate, data);
       return data;
+    })
+    .catch((error) => {
+      if (error.name === "TimeoutError" || error.name === "AbortError") {
+        throw new Error(`${location.name} took too long to respond. Please try again`);
+      }
+      throw error;
     })
     .finally(() => {
       pendingRequests.delete(requestKey);

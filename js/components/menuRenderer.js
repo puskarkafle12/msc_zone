@@ -3,7 +3,7 @@ import { normalizeMeals } from "../services/menuApi.js";
 import { classifyItem, displayCalories, displayProtein } from "../services/classifier.js";
 import { buildNutrition, itemMatchesFilters, isHealthy, isHighProtein, recommendationScore } from "../services/filtering.js";
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -13,13 +13,6 @@ function escapeHtml(value) {
 
 function itemName(item) {
   return String(item.formalName ?? item.name ?? item.title ?? "Item").trim();
-}
-
-function caloriesNumber(item) {
-  const c = item.calories ?? item.calorie ?? item.kcal;
-  if (c === null || c === undefined || c === "") return null;
-  const n = Number.parseFloat(String(c).replace(/[^\d.]/g, ""));
-  return Number.isFinite(n) ? n : null;
 }
 
 function canonicalMealKey(name) {
@@ -64,7 +57,7 @@ function nutritionLine(item) {
   return { calories, protein };
 }
 
-function renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount) {
+function renderItemCard(name, item, tags, favorites, highProtein, healthy) {
   const tagsMarkup = [];
   if (tags.vegetarian) tagsMarkup.push('<span class="meta-chip meta-vegetarian">Vegetarian</span>');
   if (healthy) tagsMarkup.push('<span class="meta-chip meta-healthy">Healthy pick</span>');
@@ -79,14 +72,12 @@ function renderItemCard(name, item, tags, favorites, highProtein, healthy, track
   const favActive = favorites.has(name.toLowerCase());
   const favClass = favActive ? "fav-btn active" : "fav-btn";
   return `
-    <article class="menu-item">
+    <article class="menu-item${favActive ? " is-favorite" : ""}">
       <div class="item-main">
         <div class="item-top">
           <h5 class="item-name">${escapeHtml(name)}</h5>
           <div class="item-actions">
-            <span class="add-count-badge" data-add-count-for="${escapeHtml(name)}" ${trackedCount > 0 ? "" : "hidden"}>${trackedCount > 0 ? `${trackedCount}` : ""}</span>
-            <button type="button" class="add-btn" data-add-item="${escapeHtml(name)}" data-add-calories="${caloriesNumber(item) ?? ""}" aria-label="Add to calorie tracker">+ Add</button>
-            <button type="button" class="${favClass}" data-favorite-name="${escapeHtml(name)}" aria-label="Toggle favorite">★</button>
+            <button type="button" class="${favClass}" data-favorite-name="${escapeHtml(name)}" aria-label="${favActive ? "Remove" : "Save"} ${escapeHtml(name)} ${favActive ? "from" : "to"} favourites" aria-pressed="${favActive}">★</button>
           </div>
         </div>
         ${tagsMarkup.length ? `<div class="meta-line">${tagsMarkup.join('<span class="meta-sep">,</span>')}</div>` : ""}
@@ -96,6 +87,7 @@ function renderItemCard(name, item, tags, favorites, highProtein, healthy, track
 
 function stationSortValue(name) {
   const t = String(name || "").toLowerCase();
+  if (t.trim() === "savory") return -1;
   if (t.includes("chef") && t.includes("table")) return 0;
   return 1;
 }
@@ -165,10 +157,14 @@ export function renderMeals(payload) {
 }
 
 export function renderMealsWithOptions(payload, options) {
+  if (payload?.error) return {
+    html: `<p class="empty-note error">${escapeHtml(payload.error)}. Open Dates & options and select Load range to retry.</p>`,
+    visibleItems: [], recommended: [], allNames: [],
+  };
   const meals = normalizeMeals(payload);
   if (!meals.length) {
     return {
-      html: '<p class="empty-note">No menu data available.</p>',
+      html: '<p class="empty-note">No menu published for this date. Try another date in Dates & options.</p>',
       visibleItems: [],
       recommended: [],
       allNames: [],
@@ -177,7 +173,6 @@ export function renderMealsWithOptions(payload, options) {
 
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
-  const trackerCounts = options.trackerCounts ?? new Map();
   const mealFilters = options.mealFilters ?? [];
   const hideMealTitles = Boolean(options.hideMealTitles);
   const highProteinMode = activeFilters.includes("highProtein");
@@ -200,13 +195,13 @@ export function renderMealsWithOptions(payload, options) {
 
     let groupHtml = "";
     const mealItems = [];
+    const renderedByHeader = new Map();
     for (const group of sortedGroups) {
       if (!group || typeof group !== "object") continue;
       const groupName = group.name ?? group.station ?? group.category ?? "Station";
       const items = group.items ?? group.products ?? group.recipes ?? [];
       if (!Array.isArray(items) || !items.length) continue;
 
-      const renderedByHeader = new Map();
       for (const item of items) {
         if (!item || typeof item !== "object") continue;
         const tags = classifyItem(item);
@@ -216,6 +211,7 @@ export function renderMealsWithOptions(payload, options) {
         const highProtein = isHighProtein(nutrition);
         const score = recommendationScore(tags, nutrition, activeFilters);
         const name = itemName(item);
+        if (options.favoritesOnly && !favorites.has(name.toLowerCase())) continue;
         allNames.push(name);
         visibleItems.push({
           name,
@@ -228,35 +224,34 @@ export function renderMealsWithOptions(payload, options) {
         });
         const headerName = stationHeaderForItem(item, groupName);
         if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
-        const trackedCount = trackerCounts.get(name.toLowerCase()) || 0;
         renderedByHeader.get(headerName).push({
-          html: renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount),
+          html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
           protein: nutrition.protein ?? -1,
           name,
         });
       }
-      const sections = [...renderedByHeader.entries()].sort((a, b) => {
-        const sa = stationSortValue(a[0]);
-        const sb = stationSortValue(b[0]);
-        if (sa !== sb) return sa - sb;
-        return a[0].localeCompare(b[0]);
-      });
-      for (const [headerName, renderedItems] of sections) {
-        if (highProteinMode) {
-          renderedItems.sort((a, b) => {
-            if (b.protein !== a.protein) return b.protein - a.protein;
-            return a.name.localeCompare(b.name);
-          });
-          mealItems.push(...renderedItems);
-        } else {
-          const itemHtml = renderedItems.map((x) => x.html).join("");
-          if (!itemHtml) continue;
-          groupHtml += `
-            <section class="station-block">
-              <h4 class="station-name ${stationClassName(headerName)}">${escapeHtml(headerName)}</h4>
-              <div class="station-items">${itemHtml}</div>
-            </section>`;
-        }
+    }
+    const sections = [...renderedByHeader.entries()].sort((a, b) => {
+      const sa = stationSortValue(a[0]);
+      const sb = stationSortValue(b[0]);
+      if (sa !== sb) return sa - sb;
+      return a[0].localeCompare(b[0]);
+    });
+    for (const [headerName, renderedItems] of sections) {
+      if (highProteinMode) {
+        renderedItems.sort((a, b) => {
+          if (b.protein !== a.protein) return b.protein - a.protein;
+          return a.name.localeCompare(b.name);
+        });
+        mealItems.push(...renderedItems);
+      } else {
+        const itemHtml = renderedItems.map((x) => x.html).join("");
+        if (!itemHtml) continue;
+        groupHtml += `
+          <section class="station-block">
+            <h4 class="station-name ${stationClassName(headerName)}">${escapeHtml(headerName)}</h4>
+            <div class="station-items">${itemHtml}</div>
+          </section>`;
       }
     }
 
@@ -299,196 +294,78 @@ export function renderMealsWithOptions(payload, options) {
   return { html: mealHtml, visibleItems, recommended, allNames };
 }
 
-export function renderCombinedComparison(mscPayload, zonePayload, options) {
-  const msc = buildMealStationMap(mscPayload, options);
-  const zone = buildMealStationMap(zonePayload, options);
-
-  const mealKeys = [...new Set([...msc.mealOrder, ...zone.mealOrder])];
-  const mealKeyOrder = ["lunch", "dinner", "other", "breakfast"];
-  mealKeys.sort((a, b) => mealKeyOrder.indexOf(a) - mealKeyOrder.indexOf(b));
-
-  let rows = "";
-  for (const mealKey of mealKeys) {
-    const mMeal = msc.meals.get(mealKey);
-    const zMeal = zone.meals.get(mealKey);
-    const mealLabel = mMeal?.name || zMeal?.name || mealKey.toUpperCase();
-    const leftEntries = [...(mMeal?.stations.entries() ?? [])];
-    const rightEntries = [...(zMeal?.stations.entries() ?? [])];
-    const rightMap = new Map(rightEntries);
-    const usedRight = new Set();
-    const pairedRows = [];
-
-    // First pair same station names (Chef's Table, Bakery, etc.)
-    for (const [name, html] of leftEntries) {
-      if (rightMap.has(name)) {
-        pairedRows.push({
-          leftName: name,
-          leftHtml: html,
-          rightName: name,
-          rightHtml: rightMap.get(name),
-        });
-        usedRight.add(name);
-      }
-    }
-
-    // Collect unmatched stations and pack them into side-by-side rows.
-    const leftOnly = leftEntries.filter(([name]) => !rightMap.has(name));
-    const rightOnly = rightEntries.filter(([name]) => !usedRight.has(name));
-    let li = 0;
-    let ri = 0;
-    while (li < leftOnly.length && ri < rightOnly.length) {
-      const l = leftOnly[li++];
-      const r = rightOnly[ri++];
-      pairedRows.push({
-        leftName: l[0],
-        leftHtml: l[1],
-        rightName: r[0],
-        rightHtml: r[1],
-      });
-    }
-
-    // If one side still has many stations, pack two of same side into a row
-    // so the table stays dense and avoids large empty cells.
-    while (li < leftOnly.length) {
-      const a = leftOnly[li++];
-      const b = leftOnly[li++] ?? null;
-      pairedRows.push({
-        leftName: a[0],
-        leftHtml: a[1],
-        rightName: b ? b[0] : "",
-        rightHtml: b ? b[1] : "",
-      });
-    }
-    while (ri < rightOnly.length) {
-      const a = rightOnly[ri++];
-      const b = rightOnly[ri++] ?? null;
-      pairedRows.push({
-        leftName: a[0],
-        leftHtml: a[1],
-        rightName: b ? b[0] : "",
-        rightHtml: b ? b[1] : "",
-      });
-    }
-
-    let stationRows = "";
-    for (const row of pairedRows) {
-      stationRows += `
-        <div class="compare-station-row">
-          <div class="compare-cell">
-            ${row.leftName ? `<div class="compare-cell-head ${stationClassName(row.leftName)}">${escapeHtml(row.leftName)}</div>` : ""}
-            ${row.leftHtml || ""}
-          </div>
-          <div class="compare-cell">
-            ${row.rightName ? `<div class="compare-cell-head ${stationClassName(row.rightName)}">${escapeHtml(row.rightName)}</div>` : ""}
-            ${row.rightHtml || ""}
-          </div>
-        </div>`;
-    }
-
-    rows += `
-      <section class="compare-meal-block">
-        ${options.hideMealTitles ? "" : `<div class="compare-meal-title">${escapeHtml(mealLabel)}</div>`}
-        ${stationRows}
-      </section>`;
-  }
-
-  return `
-    <section class="compare-wrap">
-      <div class="compare-header-row">
-        <div class="compare-col-title">${escapeHtml(LOCATIONS.msc.name)}</div>
-        <div class="compare-col-title">${escapeHtml(LOCATIONS.zone.name)}</div>
-      </div>
-      <div class="compare-body">${rows || '<p class="empty-note">No data available for comparison.</p>'}</div>
-    </section>`;
-}
-
-function buildMealStationMap(payload, options) {
-  const meals = normalizeMeals(payload);
-  const mealFilters = options.mealFilters ?? [];
-  const activeFilters = options.activeFilters ?? [];
+// Flatten venue/meal/station groups before sorting so the top result is global.
+export function renderFilteredList(menus, options = {}) {
+  const filters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
-  const trackerCounts = options.trackerCounts ?? new Map();
-  const highProteinMode = activeFilters.includes("highProtein");
-  const mealMap = new Map();
-  const mealOrder = [];
-
-  for (const meal of sortMealsForDisplay(meals, mealFilters)) {
-    if (!meal || typeof meal !== "object") continue;
-    const mealName = String(meal.name ?? meal.meal ?? meal.mealPeriod ?? meal.title ?? "Meal");
-    const mealKey = canonicalMealKey(mealName);
-    const mealText = mealName.toLowerCase();
-    if (mealFilters.length && !mealFilters.some((k) => mealText.includes(k))) continue;
-
-    const groups = meal.groups ?? meal.stations ?? meal.Station ?? meal.categories ?? meal.items ?? [];
-    if (!Array.isArray(groups) || !groups.length) continue;
-    const stations = new Map();
-    const stationOrder = [];
-    const mealItems = [];
-
-    for (const group of sortStationsForDisplay(groups)) {
-      if (!group || typeof group !== "object") continue;
-      const groupName = String(group.name ?? group.station ?? group.category ?? "Station");
-      const items = group.items ?? group.products ?? group.recipes ?? [];
-      if (!Array.isArray(items) || !items.length) continue;
-      const renderedByHeader = new Map();
-
-      for (const item of items) {
-        if (!item || typeof item !== "object") continue;
-        const tags = classifyItem(item);
-        const nutrition = buildNutrition(item);
-        if (!itemMatchesFilters(tags, nutrition, activeFilters)) continue;
-        const name = itemName(item);
-        const healthy = isHealthy(tags, nutrition);
-        const highProtein = isHighProtein(nutrition);
-        const headerName = stationHeaderForItem(item, groupName);
-        if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
-        const trackedCount = trackerCounts.get(name.toLowerCase()) || 0;
-        renderedByHeader.get(headerName).push({
-          html: renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount),
-          protein: nutrition.protein ?? -1,
-          name,
-        });
-      }
-      const sections = [...renderedByHeader.entries()].sort((a, b) => {
-        const sa = stationSortValue(a[0]);
-        const sb = stationSortValue(b[0]);
-        if (sa !== sb) return sa - sb;
-        return a[0].localeCompare(b[0]);
-      });
-      for (const [headerName, renderedItems] of sections) {
-        if (highProteinMode) {
-          renderedItems.sort((a, b) => {
-            if (b.protein !== a.protein) return b.protein - a.protein;
-            return a.name.localeCompare(b.name);
-          });
-          mealItems.push(...renderedItems);
-        } else {
-          const itemHtml = renderedItems.map((x) => x.html).join("");
-          if (!itemHtml) continue;
-          stations.set(headerName, `<div class="station-items">${itemHtml}</div>`);
-          stationOrder.push(headerName);
+  const mealFilters = options.mealFilters ?? ["lunch", "dinner"];
+  const rows = new Map();
+  const notices = [];
+  for (const {venue, payload, dayLabel = ""} of menus) {
+    const venueLabel = venue === "msc" ? "MSC" : "The Zone";
+    if (payload?.error) {
+      notices.push(`${venueLabel} · ${dayLabel}: ${payload.error}`);
+      continue;
+    }
+    const meals = normalizeMeals(payload);
+    if (!meals.length) notices.push(`${venueLabel} · ${dayLabel}: no menu published for this date.`);
+    for (const meal of meals) {
+      if (!meal || typeof meal !== "object") continue;
+      const mealName = String(meal.name ?? meal.meal ?? meal.mealPeriod ?? meal.title ?? "Meal");
+      const mealKey = canonicalMealKey(mealName);
+      if (mealFilters.length && !mealFilters.includes(mealKey)) continue;
+      const groups = meal.groups ?? meal.stations ?? meal.Station ?? meal.categories ?? meal.items ?? [];
+      for (const group of Array.isArray(groups) ? groups : []) {
+        if (!group || typeof group !== "object") continue;
+        const items = group.items ?? group.products ?? group.recipes ?? [];
+        for (const item of Array.isArray(items) ? items : []) {
+          if (!item || typeof item !== "object") continue;
+          const name = itemName(item);
+          const nutrition = buildNutrition(item);
+          if (!itemMatchesFilters(classifyItem(item), nutrition, filters)) continue;
+          if (options.favoritesOnly && !favorites.has(name.toLowerCase())) continue;
+          const key = JSON.stringify([venue, dayLabel, mealKey, name.toLowerCase()]);
+          if (!rows.has(key)) rows.set(key, {name, nutrition, venueLabel, mealName, dayLabel});
         }
       }
     }
-
-    if (highProteinMode) {
-      mealItems.sort((a, b) => {
-        if (b.protein !== a.protein) return b.protein - a.protein;
-        return a.name.localeCompare(b.name);
-      });
-      const topHtml = mealItems.map((x) => x.html).join("");
-      if (topHtml) {
-        stations.set("Top High Protein", `<div class="station-items">${topHtml}</div>`);
-        stationOrder.push("Top High Protein");
-      }
-    }
-
-    if (!stations.size) continue;
-    mealMap.set(mealKey, { name: mealName, stations, stationOrder });
-    mealOrder.push(mealKey);
   }
+  const ranked = [...rows.values()].sort((a, b) =>
+    (b.nutrition.protein ?? -1) - (a.nutrition.protein ?? -1) ||
+    a.name.localeCompare(b.name) || a.venueLabel.localeCompare(b.venueLabel) || a.mealName.localeCompare(b.mealName));
+  const cards = ranked.map((row, index) => {
+    const saved = favorites.has(row.name.toLowerCase());
+    return `<li class="ranked-item${index === 0 ? " top-result" : ""}${saved ? " is-favorite" : ""}">
+      <span class="result-rank" aria-label="Rank ${index + 1}">${index + 1}</span>
+      <div class="ranked-item-body">
+        ${index === 0 && row.nutrition.protein !== null ? '<span class="top-result-label">Highest protein match</span>' : ""}
+        <h3 class="ranked-item-name">${escapeHtml(row.name)}</h3>
+        <p class="result-context"><span class="result-venue">${escapeHtml(row.venueLabel)}</span><span class="result-meal">${escapeHtml(row.mealName)}</span></p>
+        ${options.showDates ? `<p class="result-date">${escapeHtml(row.dayLabel)}</p>` : ""}
+        <p class="result-nutrition"><strong>${row.nutrition.protein !== null ? `${row.nutrition.protein}g protein` : "Protein unavailable"}</strong>${row.nutrition.calories !== null ? ` <span>· ${row.nutrition.calories} kcal</span>` : ""}</p>
+      </div>
+      <button type="button" class="fav-btn${saved ? " active" : ""}" data-favorite-name="${escapeHtml(row.name)}" aria-label="${saved ? "Remove" : "Save"} ${escapeHtml(row.name)} ${saved ? "from" : "to"} favourites" aria-pressed="${saved}">★</button>
+    </li>`;
+  }).join("");
+  return `<section class="ranked-results" aria-labelledby="ranked-heading">
+    <header class="ranked-results-header"><h2 id="ranked-heading">${ranked.length} matching ${ranked.length === 1 ? "item" : "items"}</h2><p>One list · highest protein first</p></header>
+    ${notices.map(note => `<p class="empty-note">${escapeHtml(note)}</p>`).join("")}
+    ${cards ? `<ol class="ranked-list">${cards}</ol>` : '<p class="empty-note">No items match your filters. Try clearing a preference or choosing another date.</p>'}
+  </section>`;
+}
 
-  return { meals: mealMap, mealOrder };
+export function renderCombinedComparison(mscPayload, zonePayload, options) {
+  const mealFilters = options.mealFilters ?? [];
+  if (mealFilters.length > 1) {
+    return mealFilters.map(meal => `<section class="meal-comparison">
+      <h2 class="comparison-meal-heading">${escapeHtml(meal[0].toUpperCase() + meal.slice(1))}</h2>
+      ${renderCombinedComparison(mscPayload, zonePayload, {...options, mealFilters: [meal], hideMealTitles: true})}
+    </section>`).join("");
+  }
+  return `<section class="combined-grid" aria-label="Dining venue comparison">
+    ${renderVenuePanel("msc", renderMealsWithOptions(mscPayload, options).html)}
+    ${renderVenuePanel("zone", renderMealsWithOptions(zonePayload, options).html)}
+  </section>`;
 }
 
 export function renderVenuePanel(locationKey, bodyHtml) {

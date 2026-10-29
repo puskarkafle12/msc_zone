@@ -10,12 +10,12 @@ LOCATIONS = {
     "msc": {
         "name": "MSC Dining Facility",
         "site_id": "77011001",
-        "location_id": "14912",
+        "menu_id": "1410735",
     },
     "zone": {
         "name": "The Zone",
         "site_id": "77011012",
-        "location_id": "15924",
+        "menu_id": "1410982",
     },
 }
 
@@ -34,7 +34,7 @@ HEADERS = {
 def get_menu(location_key, menu_date):
     location = LOCATIONS[location_key]
 
-    url = f"{BASE_URL}/{location['site_id']}/{location['location_id']}"
+    url = f"{BASE_URL}/{location['site_id']}/{location['menu_id']}"
 
     params = {
         "date": menu_date
@@ -112,7 +112,7 @@ def print_menu(data, location_name):
 
 
 def main():
-    menu_date = "2026-04-22"
+    menu_date = date.today().isoformat()
 
     for location_key in ["msc", "zone"]:
         location_name = LOCATIONS[location_key]["name"]
