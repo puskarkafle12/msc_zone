@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderMealsWithOptions, renderCombinedComparison, renderFilteredList } from '../js/components/menuRenderer.js';
+import { LOCATIONS } from '../js/config.js';
 import { fetchMenu } from '../js/services/menuApi.js';
 
 const payload = [{name: 'Lunch', groups: [{name: 'Grill', items: [
@@ -108,4 +109,27 @@ test('other filters also use a combined list, deduplicate stations, and preserve
   const saved = renderFilteredList([{venue: 'msc', payload: meals}], {favoritesOnly: true, favorites: new Set(['veggie bowl'])});
   assert.match(saved, /aria-pressed="true"/);
   assert.doesNotMatch(saved, /High calorie dish/);
+});
+
+test('changing an upstream menu ID invalidates old cached menu data', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalId = LOCATIONS.msc.menuId;
+  let calls = 0;
+  const urls = [];
+  globalThis.fetch = async url => {
+    calls++;
+    urls.push(url);
+    return {ok: true, json: async () => calls === 1 ? [] : payload};
+  };
+  try {
+    assert.deepEqual(await fetchMenu('msc', '2026-10-30'), []);
+    LOCATIONS.msc.menuId = 'new-menu-id';
+    assert.deepEqual(await fetchMenu('msc', '2026-10-30'), payload);
+    assert.equal(calls, 2);
+    assert.match(urls[0], new RegExp('/' + originalId + '[?]'));
+    assert.match(urls[1], /\/new-menu-id[?]/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    LOCATIONS.msc.menuId = originalId;
+  }
 });

@@ -5,8 +5,8 @@ const API_KEY = "68717828-b754-420d-9488-4c37cb7d7ef7";
 const BASE_URL = "https://api-prd.sodexomyway.net/v0.2/data/menu";
 
 const LOCATIONS = {
-  msc: { key: "msc", name: "MSC Dining Facility", siteId: "77011001", locationId: "14912" },
-  zone: { key: "zone", name: "The Zone", siteId: "77011012", locationId: "15924" },
+  msc: { key: "msc", name: "MSC Dining Facility", siteId: "77011001", menuId: "1410735" },
+  zone: { key: "zone", name: "The Zone", siteId: "77011012", menuId: "1410982" },
 };
 
 const HEADERS = {
@@ -235,7 +235,7 @@ function renderMealsHtml(payload) {
 
 async function fetchMenu(locationKey, isoDate) {
   const loc = LOCATIONS[locationKey];
-  const url = `${BASE_URL}/${loc.siteId}/${loc.locationId}?date=${encodeURIComponent(isoDate)}`;
+  const url = `${BASE_URL}/${loc.siteId}/${loc.menuId}?date=${encodeURIComponent(isoDate)}`;
   const res = await fetch(url, { headers: HEADERS, mode: "cors" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

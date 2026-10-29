@@ -6,7 +6,8 @@ const memoryCache = new Map();
 const pendingRequests = new Map();
 
 function cacheId(locationKey, isoDate) {
-  return `${locationKey}::${isoDate}`;
+  const location = LOCATIONS[locationKey];
+  return `${locationKey}::${location.siteId}::${location.menuId}::${isoDate}`;
 }
 
 function loadPersistedCache() {
@@ -62,7 +63,7 @@ export async function fetchMenu(locationKey, isoDate) {
   if (existingPending) return existingPending;
 
   const location = LOCATIONS[locationKey];
-  const url = `${BASE_URL}/${location.siteId}/${location.locationId}?date=${encodeURIComponent(isoDate)}`;
+  const url = `${BASE_URL}/${location.siteId}/${location.menuId}?date=${encodeURIComponent(isoDate)}`;
   const pending = fetch(url, { headers: REQUEST_HEADERS, mode: "cors", signal: AbortSignal.timeout(20000) })
     .then((response) => {
       if (!response.ok) {

@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "check:api": "node scripts/check-api.js"
   },
   "keywords": [],
   "author": "",

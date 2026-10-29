@@ -56,3 +56,7 @@ This app is configured as an installable Progressive Web App.
   - Tap **Share** -> **Add to Home Screen**
 
 The calorie tracker and Add actions have been removed. Selecting any food filter opens one combined lunch + dinner list for both venues, ranked by protein across all results. Every row labels its venue and meal; the highest-protein match is highlighted first. High protein requires 15g+ per item. Meal and venue buttons can narrow the list afterward.
+
+## Verify the live API
+
+Run `npm run check:api` (optionally `npm run check:api -- YYYY-MM-DD`). This compares the configured menu IDs with each official dining page before checking the selected date. Menu IDs can change between terms: an old ID may return HTTP 200 with an empty list. Cache entries include the upstream menu ID so a configuration update cannot reuse old empty results.
