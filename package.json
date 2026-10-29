@@ -1,7 +1,7 @@
 {
   "name": "msc_zone",
   "version": "1.0.0",
-  "description": "PVAMU dining comparison app with calorie tracking.",
+  "description": "PVAMU dining comparison app with favourites and meal filters.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

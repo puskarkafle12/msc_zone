@@ -65,3 +65,17 @@ test('empty publication and request failures have distinct messages', () => {
   assert.match(renderMealsWithOptions([], {}).html, /No menu published/);
   assert.match(renderMealsWithOptions({error: 'HTTP 503'}, {}).html, /HTTP 503/);
 });
+
+test('high-protein comparison includes lunch and dinner for both venues without Add actions', () => {
+  const meals = ['Breakfast', 'Lunch', 'Dinner'].map(name => ({name, groups: [{name: 'Grill', items: [
+    {name: `${name} chicken`, protein: 25}, {name: `${name} rice`, protein: 4},
+  ]}]}));
+  const html = renderCombinedComparison(meals, meals, {
+    activeFilters: ['highProtein'], mealFilters: ['lunch', 'dinner'],
+  });
+  assert.equal((html.match(/<h5 class="item-name">Lunch chicken<\/h5>/g) ?? []).length, 2);
+  assert.match(html, /Dinner chicken/);
+  assert.doesNotMatch(html, /Breakfast chicken|Lunch rice|Dinner rice|data-add-item|calorie tracker/);
+  assert.equal((html.match(/class="venue-panel"/g) ?? []).length, 4);
+  assert.equal((html.match(/comparison-meal-heading/g) ?? []).length, 2);
+});

@@ -597,34 +597,6 @@ body {
   max-width: 100%;
 }
 
-.add-count-badge {
-  border: 1px solid #86efac;
-  background: #dcfce7;
-  color: #166534;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1;
-  min-width: 1.35rem;
-  text-align: center;
-  padding: 0.08rem 0.26rem;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.add-btn {
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  padding: 0.1rem 0.42rem;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .fav-btn {
   border: 1px solid #cbd5e1;
   background: #fff;
@@ -789,118 +761,6 @@ body {
   padding-bottom: 1.6rem;
   color: var(--muted);
   font-size: 0.8rem;
-}
-
-.tracker-panel {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: var(--shadow);
-  padding: 0.95rem 1rem;
-}
-
-.tracker-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.6rem;
-}
-
-.tracker-header h2 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.tracker-total {
-  margin: 0 0 0.8rem;
-  font-weight: 700;
-  color: #1e3a8a;
-}
-
-.tracker-graph-controls {
-  display: flex;
-  gap: 0.6rem;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  margin-bottom: 0.75rem;
-}
-
-.tracker-graph {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  padding: 0.6rem;
-  margin-bottom: 0.75rem;
-}
-
-.graph-empty {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
-}
-
-.graph-bars {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-  align-items: end;
-  gap: 0.35rem;
-  min-height: 165px;
-}
-
-.bar-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.bar-value {
-  font-size: 0.7rem;
-  color: var(--muted);
-}
-
-.bar {
-  width: 100%;
-  max-width: 38px;
-  border-radius: 7px 7px 3px 3px;
-  background: linear-gradient(180deg, #60a5fa, #2563eb);
-  min-height: 4px;
-}
-
-.bar-label {
-  font-size: 0.68rem;
-  color: var(--muted);
-  text-align: center;
-  line-height: 1.2;
-}
-
-.tracker-list {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.tracker-item {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #fff;
-  padding: 0.55rem 0.65rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.8rem;
-}
-
-.tracker-item-name {
-  margin: 0;
-  font-weight: 600;
-}
-
-.tracker-item-meta {
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: var(--muted);
 }
 
 .share-panel {
@@ -1236,7 +1096,7 @@ button { min-height: 44px; }
   .tab-btn { font-size: .75rem; padding: .45rem .2rem; }
   .meal-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
   .meal-btn { font-size: .9rem; }
-  .range-panel-row, .tracker-graph-controls { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .range-panel-row { display: grid; grid-template-columns: minmax(0, 1fr); }
   .field input, .field select, #share-link-input { width: 100%; min-width: 0; min-height: 44px; font-size: 16px; }
   .range-panel-row::before { width: auto; }
   .day-body { padding: .5rem; }
@@ -1244,6 +1104,22 @@ button { min-height: 44px; }
   .item-name { font-size: 1rem; }
   .item-actions { width: auto; flex-wrap: nowrap; }
   .item-top { gap: .6rem; }
-  .tracker-header { flex-wrap: wrap; }
   .favorites-heading-row .btn { width: 100%; }
+}
+
+/* Keep the main dining choices together, ahead of saved favourites. */
+.control-label { margin: 0 0 .5rem; font-size: .85rem; font-weight: 700; color: #475569; }
+.filter-panel .segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; background: #f8fafc; border: 1px solid #cbd5e1; margin-bottom: 1rem; }
+.filter-panel .seg-btn { color: #334155; font-weight: 600; padding: .65rem .5rem; }
+.filter-panel .seg-btn + .seg-btn { border-left: 1px solid #cbd5e1; }
+.filter-panel .seg-btn.active { background: #3730a3; color: #fff; }
+.meal-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; border-radius: 12px; }
+.meal-btn { border-radius: 8px; font-size: .9rem; }
+.meal-btn.active { color: #fff; background: #3730a3; border-color: #3730a3; }
+.top-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.comparison-meal-heading { font-size: 1.25rem; color: #312e81; margin: .2rem 0 .75rem; padding: .6rem .75rem; border-left: 4px solid #4f46e5; background: #eef2ff; border-radius: 8px; }
+.meal-comparison + .meal-comparison { margin-top: 1.5rem; }
+@media (max-width: 700px) {
+  .meal-switch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-panel .segmented .seg-btn { font-size: .9rem; }
 }

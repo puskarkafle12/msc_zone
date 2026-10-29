@@ -15,13 +15,6 @@ function itemName(item) {
   return String(item.formalName ?? item.name ?? item.title ?? "Item").trim();
 }
 
-function caloriesNumber(item) {
-  const c = item.calories ?? item.calorie ?? item.kcal;
-  if (c === null || c === undefined || c === "") return null;
-  const n = Number.parseFloat(String(c).replace(/[^\d.]/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
-
 function canonicalMealKey(name) {
   const t = String(name || "").toLowerCase();
   if (t.includes("lunch")) return "lunch";
@@ -64,7 +57,7 @@ function nutritionLine(item) {
   return { calories, protein };
 }
 
-function renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount) {
+function renderItemCard(name, item, tags, favorites, highProtein, healthy) {
   const tagsMarkup = [];
   if (tags.vegetarian) tagsMarkup.push('<span class="meta-chip meta-vegetarian">Vegetarian</span>');
   if (healthy) tagsMarkup.push('<span class="meta-chip meta-healthy">Healthy pick</span>');
@@ -84,8 +77,6 @@ function renderItemCard(name, item, tags, favorites, highProtein, healthy, track
         <div class="item-top">
           <h5 class="item-name">${escapeHtml(name)}</h5>
           <div class="item-actions">
-            <span class="add-count-badge" data-add-count-for="${escapeHtml(name)}" ${trackedCount > 0 ? "" : "hidden"}>${trackedCount > 0 ? `${trackedCount}` : ""}</span>
-            <button type="button" class="add-btn" data-add-item="${escapeHtml(name)}" data-add-calories="${caloriesNumber(item) ?? ""}" aria-label="Add to calorie tracker">+ Add</button>
             <button type="button" class="${favClass}" data-favorite-name="${escapeHtml(name)}" aria-label="${favActive ? "Remove" : "Save"} ${escapeHtml(name)} ${favActive ? "from" : "to"} favourites" aria-pressed="${favActive}">★</button>
           </div>
         </div>
@@ -166,13 +157,13 @@ export function renderMeals(payload) {
 
 export function renderMealsWithOptions(payload, options) {
   if (payload?.error) return {
-    html: `<p class="empty-note error">${escapeHtml(payload.error)}. Try Load range again.</p>`,
+    html: `<p class="empty-note error">${escapeHtml(payload.error)}. Open Dates & options and select Load range to retry.</p>`,
     visibleItems: [], recommended: [], allNames: [],
   };
   const meals = normalizeMeals(payload);
   if (!meals.length) {
     return {
-      html: '<p class="empty-note">No menu published for this date. Try another date in Show controls.</p>',
+      html: '<p class="empty-note">No menu published for this date. Try another date in Dates & options.</p>',
       visibleItems: [],
       recommended: [],
       allNames: [],
@@ -181,7 +172,6 @@ export function renderMealsWithOptions(payload, options) {
 
   const activeFilters = options.activeFilters ?? [];
   const favorites = options.favorites ?? new Set();
-  const trackerCounts = options.trackerCounts ?? new Map();
   const mealFilters = options.mealFilters ?? [];
   const hideMealTitles = Boolean(options.hideMealTitles);
   const highProteinMode = activeFilters.includes("highProtein");
@@ -233,9 +223,8 @@ export function renderMealsWithOptions(payload, options) {
         });
         const headerName = stationHeaderForItem(item, groupName);
         if (!renderedByHeader.has(headerName)) renderedByHeader.set(headerName, []);
-        const trackedCount = trackerCounts.get(name.toLowerCase()) || 0;
         renderedByHeader.get(headerName).push({
-          html: renderItemCard(name, item, tags, favorites, highProtein, healthy, trackedCount),
+          html: renderItemCard(name, item, tags, favorites, highProtein, healthy),
           protein: nutrition.protein ?? -1,
           name,
         });
@@ -305,6 +294,13 @@ export function renderMealsWithOptions(payload, options) {
 }
 
 export function renderCombinedComparison(mscPayload, zonePayload, options) {
+  const mealFilters = options.mealFilters ?? [];
+  if (mealFilters.length > 1) {
+    return mealFilters.map(meal => `<section class="meal-comparison">
+      <h2 class="comparison-meal-heading">${escapeHtml(meal[0].toUpperCase() + meal.slice(1))}</h2>
+      ${renderCombinedComparison(mscPayload, zonePayload, {...options, mealFilters: [meal], hideMealTitles: true})}
+    </section>`).join("");
+  }
   return `<section class="combined-grid" aria-label="Dining venue comparison">
     ${renderVenuePanel("msc", renderMealsWithOptions(mscPayload, options).html)}
     ${renderVenuePanel("zone", renderMealsWithOptions(zonePayload, options).html)}

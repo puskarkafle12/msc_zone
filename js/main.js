@@ -9,15 +9,12 @@ let favoritesOnly = false;
 let menuLoadId = 0;
 let lastRenderText = "";
 const FAVORITES_KEY = "pvamu_menu_favorites_v1";
-const CALORIE_LOG_KEY = "pvamu_calorie_log_v1";
 
 const els = {
   tabMenuBtn: document.getElementById("tab-menu-btn"),
-  tabTrackerBtn: document.getElementById("tab-tracker-btn"),
   tabShareBtn: document.getElementById("tab-share-btn"),
   tabAboutBtn: document.getElementById("tab-about-btn"),
   menuPage: document.getElementById("menu-page"),
-  trackerPage: document.getElementById("tracker-page"),
   sharePage: document.getElementById("share-page"),
   aboutPage: document.getElementById("about-page"),
   toggleControlsBtn: document.getElementById("toggle-controls-btn"),
@@ -31,13 +28,6 @@ const els = {
   loadRangeBtn: document.getElementById("load-range-btn"),
   copyMenuBtn: document.getElementById("copy-menu-btn"),
   clearFiltersBtn: document.getElementById("clear-filters-btn"),
-  trackerDateInput: document.getElementById("tracker-date-input"),
-  graphStartInput: document.getElementById("graph-start-input"),
-  graphEndInput: document.getElementById("graph-end-input"),
-  graphGroupSelect: document.getElementById("graph-group-select"),
-  trackerGraph: document.getElementById("tracker-graph"),
-  trackerTotal: document.getElementById("tracker-total"),
-  trackerList: document.getElementById("tracker-list"),
   shareLinkInput: document.getElementById("share-link-input"),
   copyShareLinkBtn: document.getElementById("copy-share-link-btn"),
   shareQrImg: document.getElementById("share-qr-img"),
@@ -49,8 +39,12 @@ function activeFilters() {
   return [...document.querySelectorAll("[data-filter]:checked")].map((node) => node.value);
 }
 
+function filtersIncludeHighProtein() {
+  return activeFilters().includes("highProtein");
+}
+
 function activeMealFilters() {
-  return selectedMeal ? [selectedMeal] : [];
+  return selectedMeal === "lunchDinner" ? ["lunch", "dinner"] : [selectedMeal];
 }
 
 function loadFavorites() {
@@ -76,15 +70,12 @@ function setStatus(message, isError = false) {
 
 function setActiveTab(tab) {
   const menu = tab === "menu";
-  const tracker = tab === "tracker";
   const share = tab === "share";
   const about = tab === "about";
   els.menuPage.hidden = !menu;
-  els.trackerPage.hidden = !tracker;
   els.sharePage.hidden = !share;
   els.aboutPage.hidden = !about;
   els.tabMenuBtn.classList.toggle("active", menu);
-  els.tabTrackerBtn.classList.toggle("active", tracker);
   els.tabShareBtn.classList.toggle("active", share);
   els.tabAboutBtn.classList.toggle("active", about);
 }
@@ -114,16 +105,10 @@ function setMealButtons() {
 function initDates() {
   const today = new Date();
   const todayIso = formatISODate(today);
-  const rangeStart = new Date(today);
-  rangeStart.setDate(today.getDate() - 6);
   els.anchorDateInput.value = todayIso;
   els.customStartInput.value = todayIso;
   els.customEndInput.value = todayIso;
   els.rangeTypeSelect.value = "today";
-  els.trackerDateInput.value = todayIso;
-  els.graphStartInput.value = formatISODate(rangeStart);
-  els.graphEndInput.value = todayIso;
-  els.graphGroupSelect.value = "daily";
   const shareUrl = window.location.href;
   els.shareLinkInput.value = shareUrl;
   els.shareQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareUrl)}`;
@@ -144,183 +129,6 @@ async function fetchByVenue(isoDate) {
     : [keys[index], { error: result.reason instanceof Error ? result.reason.message : "Menu request failed." }]));
 }
 
-function loadCalorieLogStore() {
-  try {
-    const raw = localStorage.getItem(CALORIE_LOG_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function todayTrackerCountsMap() {
-  const day = formatISODate(new Date());
-  const store = loadCalorieLogStore();
-  const list = Array.isArray(store[day]) ? store[day] : [];
-  const counts = new Map();
-  for (const item of list) {
-    if (!item || typeof item !== "object") continue;
-    const name = String(item.name ?? "").trim();
-    if (!name) continue;
-    const qty = Number(item.quantity) || 0;
-    if (qty > 0) counts.set(name.toLowerCase(), qty);
-  }
-  return counts;
-}
-
-function saveCalorieLogStore(store) {
-  localStorage.setItem(CALORIE_LOG_KEY, JSON.stringify(store));
-}
-
-function addCalorieEntry({ name, quantity, caloriesPerUnit }) {
-  const day = formatISODate(new Date());
-  const store = loadCalorieLogStore();
-  const list = Array.isArray(store[day]) ? store[day] : [];
-  const key = String(name).toLowerCase();
-  const existing = list.find((item) => String(item.name).toLowerCase() === key);
-  if (existing) {
-    existing.quantity = (Number(existing.quantity) || 0) + quantity;
-    existing.caloriesPerUnit = Number.isFinite(caloriesPerUnit) && caloriesPerUnit > 0
-      ? caloriesPerUnit
-      : (Number(existing.caloriesPerUnit) || 0);
-    existing.totalCalories = (Number(existing.quantity) || 0) * (Number(existing.caloriesPerUnit) || 0);
-    existing.addedAt = new Date().toISOString();
-  } else {
-    list.push({
-      id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      name,
-      quantity,
-      caloriesPerUnit,
-      totalCalories: caloriesPerUnit * quantity,
-      addedAt: new Date().toISOString(),
-    });
-  }
-  store[day] = list;
-  saveCalorieLogStore(store);
-}
-
-function removeCalorieEntry(day, entryId) {
-  const store = loadCalorieLogStore();
-  const list = Array.isArray(store[day]) ? store[day] : [];
-  store[day] = list.filter((item) => item.id !== entryId);
-  saveCalorieLogStore(store);
-}
-
-function renderTracker() {
-  const day = els.trackerDateInput.value || formatISODate(new Date());
-  const store = loadCalorieLogStore();
-  const list = Array.isArray(store[day]) ? store[day] : [];
-  const total = list.reduce((sum, item) => sum + (Number(item.totalCalories) || 0), 0);
-  els.trackerTotal.textContent = `Total: ${Math.round(total)} kcal`;
-
-  if (!list.length) {
-    els.trackerList.innerHTML = '<p class="empty-note">No entries yet for this day.</p>';
-    return;
-  }
-
-  els.trackerList.innerHTML = list
-    .map(
-      (item) => `
-      <div class="tracker-item">
-        <div>
-          <p class="tracker-item-name">${item.name}</p>
-          <p class="tracker-item-meta">${item.quantity} x ${Math.round(item.caloriesPerUnit)} kcal = <strong>${Math.round(item.totalCalories)} kcal</strong></p>
-        </div>
-        <button type="button" class="btn tiny" data-delete-entry="${item.id}" data-delete-day="${day}">Delete</button>
-      </div>`
-    )
-    .join("");
-
-  els.trackerList.querySelectorAll("[data-delete-entry]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const id = button.getAttribute("data-delete-entry");
-      const d = button.getAttribute("data-delete-day");
-      removeCalorieEntry(d, id);
-      renderTracker();
-      renderCalorieGraph();
-    });
-  });
-}
-
-function graphRangeDates() {
-  const start = fromInputDate(els.graphStartInput.value);
-  const end = fromInputDate(els.graphEndInput.value);
-  return start <= end ? { start, end } : { start: end, end: start };
-}
-
-function weekKey(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - day);
-  return formatISODate(d);
-}
-
-function monthKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function aggregateCaloriesForGraph() {
-  const store = loadCalorieLogStore();
-  const { start, end } = graphRangeDates();
-  const groupBy = els.graphGroupSelect.value;
-  const days = eachDate(start, end);
-  const map = new Map();
-
-  for (const day of days) {
-    const iso = formatISODate(day);
-    const list = Array.isArray(store[iso]) ? store[iso] : [];
-    const total = list.reduce((sum, item) => sum + (Number(item.totalCalories) || 0), 0);
-    let key = iso;
-    if (groupBy === "weekly") key = weekKey(day);
-    if (groupBy === "monthly") key = monthKey(day);
-    map.set(key, (map.get(key) || 0) + total);
-  }
-
-  const rows = [...map.entries()].map(([key, total]) => ({ key, total }));
-  rows.sort((a, b) => a.key.localeCompare(b.key));
-  return rows;
-}
-
-function prettyGraphLabel(key, groupBy) {
-  if (groupBy === "daily") {
-    const d = fromInputDate(key);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
-  if (groupBy === "weekly") {
-    const d = fromInputDate(key);
-    return `Wk ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
-  }
-  const [year, month] = key.split("-");
-  const d = new Date(Number(year), Number(month) - 1, 1);
-  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-}
-
-function renderCalorieGraph() {
-  const rows = aggregateCaloriesForGraph();
-  if (!rows.length || rows.every((r) => r.total === 0)) {
-    els.trackerGraph.innerHTML = '<p class="graph-empty">No calories in this range yet.</p>';
-    return;
-  }
-
-  const max = Math.max(...rows.map((r) => r.total), 1);
-  const groupBy = els.graphGroupSelect.value;
-  const bars = rows
-    .map((row) => {
-      const heightPct = Math.max(4, (row.total / max) * 100);
-      return `
-        <div class="bar-wrap">
-          <div class="bar-value">${Math.round(row.total)}</div>
-          <div class="bar" style="height:${heightPct}%"></div>
-          <div class="bar-label">${prettyGraphLabel(row.key, groupBy)}</div>
-        </div>`;
-    })
-    .join("");
-
-  els.trackerGraph.innerHTML = `<div class="graph-bars">${bars}</div>`;
-}
-
 function wireFavoriteButtons() {
   const favorites = loadFavorites();
   els.content.querySelectorAll("[data-favorite-name]").forEach((button) => {
@@ -331,34 +139,6 @@ function wireFavoriteButtons() {
       else favorites.add(key);
       saveFavorites(favorites);
       loadMenus();
-    });
-  });
-}
-
-function wireAddButtons() {
-  document.querySelectorAll("[data-add-item]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const name = button.getAttribute("data-add-item") || "Item";
-      const rawCalories = Number.parseFloat(button.getAttribute("data-add-calories") || "");
-      const caloriesPerUnit = Number.isFinite(rawCalories) && rawCalories > 0 ? rawCalories : 0;
-      const quantity = 1;
-
-      addCalorieEntry({ name, quantity, caloriesPerUnit });
-      renderTracker();
-      renderCalorieGraph();
-      const card = button.closest(".menu-item");
-      const badge = card ? card.querySelector("[data-add-count-for]") : null;
-      if (badge instanceof HTMLElement) {
-        const counts = todayTrackerCountsMap();
-        const qty = counts.get(name.toLowerCase()) || 0;
-        if (qty > 0) {
-          badge.textContent = String(qty);
-          badge.hidden = false;
-        } else {
-          badge.hidden = true;
-          badge.textContent = "";
-        }
-      }
     });
   });
 }
@@ -493,7 +273,6 @@ async function loadMenus() {
   }
 
   setStatus(`Loading ${range.type} menu...`);
-  const trackerCounts = todayTrackerCountsMap();
   els.content.innerHTML = "";
   let html = '<section class="menu-stack">';
   try {
@@ -517,7 +296,6 @@ async function loadMenus() {
           activeFilters: filters,
           favoritesOnly,
           favorites,
-          trackerCounts,
           mealFilters,
           hideMealTitles: mealFilters.length === 1,
           dayLabel: label,
@@ -527,7 +305,6 @@ async function loadMenus() {
           activeFilters: filters,
           favoritesOnly,
           favorites,
-          trackerCounts,
           mealFilters,
           hideMealTitles: mealFilters.length === 1,
           dayLabel: label,
@@ -551,7 +328,9 @@ async function loadMenus() {
     }
 
     wireFavoriteButtons();
-    wireAddButtons();
+    if (filtersIncludeHighProtein()) {
+      els.status.textContent += " High protein: 15g+ per item.";
+    }
     lastRenderText = createCopyText();
 
   } catch (error) {
@@ -574,7 +353,7 @@ els.toggleControlsBtn.addEventListener("click", () => {
   const willShow = els.rangePanel.hidden;
   els.rangePanel.hidden = !willShow;
   els.toggleControlsBtn.setAttribute("aria-expanded", String(willShow));
-  els.toggleControlsBtn.textContent = willShow ? "Hide controls" : "Show controls";
+  els.toggleControlsBtn.textContent = willShow ? "Hide options" : "Dates & options";
 });
 els.clearFiltersBtn.addEventListener("click", () => {
   document.querySelectorAll("[data-filter]").forEach((node) => {
@@ -583,12 +362,20 @@ els.clearFiltersBtn.addEventListener("click", () => {
   loadMenus();
 });
 document.querySelectorAll("[data-filter]").forEach((node) => {
-  node.addEventListener("change", () => loadMenus());
+  node.addEventListener("change", () => {
+    if (node.value === "highProtein" && node.checked) {
+      selectedMeal = "lunchDinner";
+      venueMode = "combined";
+      setMealButtons();
+      setVenueButtons();
+    }
+    loadMenus();
+  });
 });
 document.querySelectorAll("[data-meal-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     const meal = button.dataset.mealTab;
-    if (meal !== "breakfast" && meal !== "lunch" && meal !== "dinner") return;
+    if (meal !== "breakfast" && meal !== "lunch" && meal !== "dinner" && meal !== "lunchDinner") return;
     selectedMeal = meal;
     setMealButtons();
     loadMenus();
@@ -603,16 +390,7 @@ els.copyMenuBtn.addEventListener("click", async () => {
     setStatus("Clipboard copy failed. Please copy manually.", true);
   }
 });
-els.trackerDateInput.addEventListener("change", renderTracker);
-els.graphStartInput.addEventListener("change", renderCalorieGraph);
-els.graphEndInput.addEventListener("change", renderCalorieGraph);
-els.graphGroupSelect.addEventListener("change", renderCalorieGraph);
 els.tabMenuBtn.addEventListener("click", () => setActiveTab("menu"));
-els.tabTrackerBtn.addEventListener("click", () => {
-  setActiveTab("tracker");
-  renderTracker();
-  renderCalorieGraph();
-});
 els.tabShareBtn.addEventListener("click", () => setActiveTab("share"));
 els.tabAboutBtn.addEventListener("click", () => setActiveTab("about"));
 els.copyShareLinkBtn.addEventListener("click", async () => {
@@ -639,8 +417,6 @@ setVenueButtons();
 setMealButtons();
 setCustomFieldsVisibility();
 setActiveTab("menu");
-renderTracker();
-renderCalorieGraph();
 loadMenus();
 
 if ("serviceWorker" in navigator) {

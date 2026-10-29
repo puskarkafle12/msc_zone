@@ -30,19 +30,7 @@
           </div>
         </div>
         <div class="header-controls">
-          <fieldset class="segmented" role="group" aria-label="Venue layout">
-            <legend class="visually-hidden">Venue layout</legend>
-            <button type="button" class="seg-btn active" data-venue="combined" aria-pressed="true">
-              Combined
-            </button>
-            <button type="button" class="seg-btn" data-venue="msc" aria-pressed="false">
-              MSC only
-            </button>
-            <button type="button" class="seg-btn" data-venue="zone" aria-pressed="false">
-              Zone only
-            </button>
-          </fieldset>
-          <button type="button" class="btn ghost" id="toggle-controls-btn" aria-expanded="false" aria-controls="range-panel">Show controls</button>
+          <button type="button" class="btn ghost" id="toggle-controls-btn" aria-expanded="false" aria-controls="range-panel">Dates & options</button>
         </div>
       </div>
     </header>
@@ -50,12 +38,47 @@
     <main class="main" id="main">
       <section class="top-tabs" aria-label="App sections">
         <button type="button" class="tab-btn active" id="tab-menu-btn">Menu</button>
-        <button type="button" class="tab-btn" id="tab-tracker-btn">Calorie tracker</button>
         <button type="button" class="tab-btn" id="tab-share-btn">Share app</button>
         <button type="button" class="tab-btn" id="tab-about-btn">About</button>
       </section>
 
       <section id="menu-page">
+      <section class="filter-panel" aria-label="Meal and diet filters">
+        <p class="control-label">Where?</p>
+          <fieldset class="segmented" role="group" aria-label="Venue layout">
+            <legend class="visually-hidden">Venue layout</legend>
+            <button type="button" class="seg-btn active" data-venue="combined" aria-pressed="true">
+              Both venues
+            </button>
+            <button type="button" class="seg-btn" data-venue="msc" aria-pressed="false">
+              MSC
+            </button>
+            <button type="button" class="seg-btn" data-venue="zone" aria-pressed="false">
+              The Zone
+            </button>
+          </fieldset>
+        <p class="control-label">Which meal?</p>
+        <div class="meal-switch" role="group" aria-label="Meal selection">
+          <button type="button" class="meal-btn" data-meal-tab="lunchDinner" aria-pressed="false">Lunch + dinner</button>
+          <button type="button" class="meal-btn" data-meal-tab="breakfast" aria-pressed="false">Breakfast</button>
+          <button type="button" class="meal-btn active" data-meal-tab="lunch" aria-pressed="true">Lunch</button>
+          <button type="button" class="meal-btn" data-meal-tab="dinner" aria-pressed="false">Dinner</button>
+        </div>
+        <div class="filter-row">
+          <span class="filter-title">Food preferences</span>
+          <label class="filter-pill"><input type="checkbox" value="highProtein" data-filter /> High protein</label>
+          <label class="filter-pill"><input type="checkbox" value="healthy" data-filter /> Healthy</label>
+          <label class="filter-pill"><input type="checkbox" value="vegetarian" data-filter /> Vegetarian</label>
+          <label class="filter-pill"><input type="checkbox" value="nonVeg" data-filter /> Non-veg</label>
+          <label class="filter-pill"><input type="checkbox" value="beef" data-filter /> Beef</label>
+          <label class="filter-pill"><input type="checkbox" value="chicken" data-filter /> Chicken</label>
+          <label class="filter-pill"><input type="checkbox" value="pork" data-filter /> Pork</label>
+          <label class="filter-pill"><input type="checkbox" value="turkey" data-filter /> Turkey</label>
+          <label class="filter-pill"><input type="checkbox" value="noBeef" data-filter /> No beef</label>
+          <label class="filter-pill"><input type="checkbox" value="noPork" data-filter /> No pork</label>
+          <button type="button" class="btn tiny" id="clear-filters-btn">Clear</button>
+        </div>
+      </section>
       <section class="favorites-panel" aria-labelledby="favorites-heading">
         <div class="favorites-heading-row">
           <div><h2 id="favorites-heading">★ Your favourites <span id="favorites-count">0</span></h2>
@@ -93,62 +116,8 @@
           <button type="button" class="btn ghost" id="copy-menu-btn">Copy menu text</button>
         </div>
       </section>
-      <section class="filter-panel" aria-label="Meal and diet filters">
-        <div class="meal-switch" role="group" aria-label="Meal selection">
-          <button type="button" class="meal-btn" data-meal-tab="breakfast" aria-pressed="false">Breakfast</button>
-          <button type="button" class="meal-btn active" data-meal-tab="lunch" aria-pressed="true">Lunch</button>
-          <button type="button" class="meal-btn" data-meal-tab="dinner" aria-pressed="false">Dinner</button>
-        </div>
-        <div class="filter-row">
-          <span class="filter-title">Filters</span>
-          <label class="filter-pill"><input type="checkbox" value="highProtein" data-filter /> High protein</label>
-          <label class="filter-pill"><input type="checkbox" value="healthy" data-filter /> Healthy</label>
-          <label class="filter-pill"><input type="checkbox" value="vegetarian" data-filter /> Vegetarian</label>
-          <label class="filter-pill"><input type="checkbox" value="nonVeg" data-filter /> Non-veg</label>
-          <label class="filter-pill"><input type="checkbox" value="beef" data-filter /> Beef</label>
-          <label class="filter-pill"><input type="checkbox" value="chicken" data-filter /> Chicken</label>
-          <label class="filter-pill"><input type="checkbox" value="pork" data-filter /> Pork</label>
-          <label class="filter-pill"><input type="checkbox" value="turkey" data-filter /> Turkey</label>
-          <label class="filter-pill"><input type="checkbox" value="noBeef" data-filter /> No beef</label>
-          <label class="filter-pill"><input type="checkbox" value="noPork" data-filter /> No pork</label>
-          <button type="button" class="btn tiny" id="clear-filters-btn">Clear</button>
-        </div>
-      </section>
       <div class="status" id="status" role="status" aria-live="polite"></div>
       <div class="content" id="content"></div>
-      </section>
-
-      <section id="tracker-page" hidden>
-        <section class="tracker-panel">
-          <div class="tracker-header">
-            <h2>Daily Calorie Tracker</h2>
-            <label class="field">
-              <span class="field-label">Date</span>
-              <input type="date" id="tracker-date-input" />
-            </label>
-          </div>
-          <div class="tracker-graph-controls">
-            <label class="field">
-              <span class="field-label">Graph start</span>
-              <input type="date" id="graph-start-input" />
-            </label>
-            <label class="field">
-              <span class="field-label">Graph end</span>
-              <input type="date" id="graph-end-input" />
-            </label>
-            <label class="field">
-              <span class="field-label">View</span>
-              <select id="graph-group-select">
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </label>
-          </div>
-          <div id="tracker-graph" class="tracker-graph"></div>
-          <p class="tracker-total" id="tracker-total">Total: 0 kcal</p>
-          <div id="tracker-list" class="tracker-list"></div>
-        </section>
       </section>
 
       <section id="share-page" hidden>
@@ -211,9 +180,9 @@
             <article class="about-card">
               <h3>Health and routine support</h3>
               <ul>
-                <li>Each menu item can be added directly to the calorie tracker with one click.</li>
-                <li>Daily totals and trend graphs help students monitor eating consistency.</li>
-                <li>Saved data in local storage keeps personal history available across sessions.</li>
+                <li>High protein shows lunch and dinner across both venues in one view.</li>
+                <li>Meal and venue buttons make it easy to narrow the menu.</li>
+                <li>Saved data in local storage keeps favourites available across sessions.</li>
                 <li>The app is mobile installable, making it practical for on-campus use.</li>
               </ul>
             </article>
